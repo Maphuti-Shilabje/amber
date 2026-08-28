@@ -2,6 +2,24 @@
 
 const API_BASE = "http://127.0.0.1:7474";
 
+// Check if a URL cannot be scripted (browser internal pages, webstore, etc.)
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  const restrictedProtocols = [
+    "chrome://",
+    "chrome-extension://",
+    "edge://",
+    "brave://",
+    "about:",
+    "devtools://",
+    "view-source:",
+    "data:"
+  ];
+  if (restrictedProtocols.some(prefix => url.startsWith(prefix))) return true;
+  if (url.includes("chromewebstore.google.com") || url.includes("chrome.google.com/webstore")) return true;
+  return false;
+}
+
 // Setup context menus
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -28,12 +46,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       auto_scrape: false
     });
   } else if (info.menuItemId === "save-page" && tab) {
+    const restricted = isRestrictedUrl(tab.url);
     await saveToMyGoogle({
       type: "bookmark",
       title: tab.title || tab.url,
       payload: tab.url,
       source_url: tab.url,
-      auto_scrape: true
+      auto_scrape: !restricted
     });
   }
 });
@@ -44,34 +63,37 @@ chrome.commands.onCommand.addListener(async (command) => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id) return;
 
-    try {
-      const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => window.getSelection().toString()
-      });
+    const restricted = isRestrictedUrl(tab.url);
+    let selectedText = "";
 
-      const selectedText = results && results[0] && results[0].result ? results[0].result.trim() : "";
-
-      if (selectedText) {
-        await saveToMyGoogle({
-          type: "highlight",
-          title: `Quote from ${tab.title || "webpage"}`,
-          payload: selectedText,
-          source_url: tab.url,
-          auto_scrape: false
+    if (!restricted) {
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => window.getSelection().toString()
         });
-      } else {
-        await saveToMyGoogle({
-          type: "bookmark",
-          title: tab.title || tab.url,
-          payload: tab.url,
-          source_url: tab.url,
-          auto_scrape: true
-        });
+        selectedText = results && results[0] && results[0].result ? results[0].result.trim() : "";
+      } catch (err) {
+        // Silently ignore script injection restrictions on protected frames
       }
-    } catch (err) {
-      console.error("Script execution failed:", err);
-      flashBadge("ERR", "#d73a49");
+    }
+
+    if (selectedText) {
+      await saveToMyGoogle({
+        type: "highlight",
+        title: tab.title ? `Quote from ${tab.title}` : "Saved Quote",
+        payload: selectedText,
+        source_url: tab.url,
+        auto_scrape: false
+      });
+    } else if (tab.url) {
+      await saveToMyGoogle({
+        type: "bookmark",
+        title: tab.title || tab.url,
+        payload: tab.url,
+        source_url: tab.url,
+        auto_scrape: !restricted
+      });
     }
   }
 });

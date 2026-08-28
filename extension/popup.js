@@ -2,6 +2,23 @@
 
 const API_BASE = "http://127.0.0.1:7474";
 
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  const restrictedProtocols = [
+    "chrome://",
+    "chrome-extension://",
+    "edge://",
+    "brave://",
+    "about:",
+    "devtools://",
+    "view-source:",
+    "data:"
+  ];
+  if (restrictedProtocols.some(prefix => url.startsWith(prefix))) return true;
+  if (url.includes("chromewebstore.google.com") || url.includes("chrome.google.com/webstore")) return true;
+  return false;
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const titleInput = document.getElementById("pop-title");
   const payloadInput = document.getElementById("pop-payload");
@@ -20,20 +37,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       titleInput.value = tab.title || "";
       payloadInput.value = currentUrl;
 
-      // Check if text is selected
-      try {
-        const results = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: () => window.getSelection().toString()
-        });
-        const selected = results && results[0] && results[0].result ? results[0].result.trim() : "";
-        if (selected) {
-          typeSelect.value = "highlight";
-          payloadInput.value = selected;
-          titleInput.value = `Quote from ${tab.title || "webpage"}`;
+      // Only attempt script injection on non-restricted pages
+      if (!isRestrictedUrl(currentUrl)) {
+        try {
+          const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => window.getSelection().toString()
+          });
+          const selected = results && results[0] && results[0].result ? results[0].result.trim() : "";
+          if (selected) {
+            typeSelect.value = "highlight";
+            payloadInput.value = selected;
+            titleInput.value = `Quote from ${tab.title || "webpage"}`;
+          }
+        } catch (e) {
+          // Ignore script restriction errors
         }
-      } catch (e) {
-        // Restricted page (chrome://, etc.)
       }
     }
   } catch (err) {
@@ -43,13 +62,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Handle form submission
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const isRestricted = isRestrictedUrl(currentUrl);
     const data = {
       type: typeSelect.value,
       title: titleInput.value.trim(),
       payload: payloadInput.value.trim(),
       source_url: currentUrl || null,
       tags: tagsInput.value.trim() || null,
-      auto_scrape: typeSelect.value === "bookmark"
+      auto_scrape: !isRestricted && typeSelect.value === "bookmark"
     };
 
     try {
