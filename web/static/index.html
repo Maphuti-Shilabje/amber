@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mygoogle</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-area">
+                <span class="logo-text">mygoogle</span>
+                <span class="logo-tag">local</span>
+            </div>
+            <div class="header-actions">
+                <span id="stats-counter" class="stats-badge">0 items</span>
+                <button id="btn-open-ingest" class="btn btn-secondary">+ Ingest</button>
+            </div>
+        </header>
+
+        <!-- Main Search Section -->
+        <main class="main-content">
+            <div class="search-box-wrapper">
+                <div class="search-input-container">
+                    <span class="search-icon">&gt;</span>
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="Search commands, docs, coffee roasters, notes... (Press '/' to focus)" 
+                        autocomplete="off"
+                        autofocus
+                    >
+                    <button id="btn-clear-search" class="btn-clear hidden" title="Clear search">x</button>
+                </div>
+
+                <!-- Filter Chips -->
+                <div class="filter-chips">
+                    <button class="chip active" data-type="">All</button>
+                    <button class="chip" data-type="command">Commands</button>
+                    <button class="chip" data-type="bookmark">Bookmarks</button>
+                    <button class="chip" data-type="highlight">Highlights</button>
+                    <button class="chip" data-type="ai_chat">AI Chats</button>
+                    <button class="chip" data-type="note">Notes</button>
+                </div>
+            </div>
+
+            <!-- Search Status / Latency -->
+            <div id="search-meta" class="search-meta hidden">
+                <span id="results-count">0 results</span>
+                <span id="results-latency" class="dim">0ms</span>
+            </div>
+
+            <!-- Results List -->
+            <div id="results-container" class="results-container">
+                <!-- Injected via JavaScript -->
+            </div>
+
+            <!-- Fallback Public Search -->
+            <div id="public-fallback" class="public-fallback hidden">
+                <span class="fallback-label">Not found in your memory? Search public web:</span>
+                <div class="fallback-links">
+                    <a id="link-google" href="#" target="_blank" class="fallback-btn">Google</a>
+                    <a id="link-ddg" href="#" target="_blank" class="fallback-btn">DuckDuckGo</a>
+                    <a id="link-github" href="#" target="_blank" class="fallback-btn">GitHub</a>
+                    <a id="link-kagi" href="#" target="_blank" class="fallback-btn">Kagi</a>
+                </div>
+            </div>
+        </main>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast hidden">Copied to clipboard</div>
+
+        <!-- Ingest Modal -->
+        <div id="modal-ingest" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3>Ingest New Item</h3>
+                    <button id="btn-close-modal" class="btn-close">x</button>
+                </div>
+                <form id="form-ingest" class="modal-form">
+                    <div class="form-group">
+                        <label for="input-type">Type</label>
+                        <select id="input-type" required>
+                            <option value="command">Command (CLI / Script)</option>
+                            <option value="bookmark">Bookmark (URL)</option>
+                            <option value="highlight">Highlight (Quote)</option>
+                            <option value="ai_chat">AI Chat / Recipe</option>
+                            <option value="note">Note / Scratchpad</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-title">Title / Summary</label>
+                        <input type="text" id="input-title" placeholder="e.g. Docker nuclear cleanup" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-payload">Payload (Command, Code, or Quote)</label>
+                        <textarea id="input-payload" rows="3" placeholder="e.g. docker system prune -a --volumes -f" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-url">Source URL (Optional)</label>
+                        <input type="url" id="input-url" placeholder="https://...">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-notes">Notes / Explanation</label>
+                        <textarea id="input-notes" rows="2" placeholder="Why this works, quirks, or edge cases"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="input-tags">Tags (Comma separated)</label>
+                            <input type="text" id="input-tags" placeholder="docker, devops, cleanup">
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="input-context">Context</label>
+                            <input type="text" id="input-context" placeholder="Ubuntu 24.04, Bash">
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" id="btn-cancel-ingest" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save to Memory</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
