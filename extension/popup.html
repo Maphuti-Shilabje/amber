@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>mygoogle Capture</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0d1117;
+      color: #f0f6fc;
+    }
+    h2 {
+      font-size: 14px;
+      margin: 0 0 10px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      background: #21262d;
+      color: #58a6ff;
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    .form-group {
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    label {
+      font-size: 11px;
+      color: #8b949e;
+      font-weight: 600;
+    }
+    input, select, textarea {
+      background-color: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      color: #f0f6fc;
+      padding: 6px 8px;
+      font-size: 12px;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #58a6ff;
+    }
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+    button {
+      background-color: #238636;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+      color: #ffffff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2ea043;
+    }
+    .link-app {
+      font-size: 11px;
+      color: #58a6ff;
+      text-decoration: none;
+    }
+    .link-app:hover {
+      text-decoration: underline;
+    }
+    .status {
+      font-size: 11px;
+      margin-top: 6px;
+      text-align: center;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>
+    <span>mygoogle</span>
+    <span class="badge">quick capture</span>
+  </h2>
+  <form id="popup-form">
+    <div class="form-group">
+      <label for="pop-type">Type</label>
+      <select id="pop-type">
+        <option value="bookmark">Bookmark</option>
+        <option value="highlight">Highlight / Quote</option>
+        <option value="command">Command / Code</option>
+        <option value="ai_chat">AI Chat / Recipe</option>
+        <option value="note">Note</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="pop-title">Title</label>
+      <input type="text" id="pop-title" required>
+    </div>
+
+    <div class="form-group">
+      <label for="pop-payload">Payload</label>
+      <textarea id="pop-payload" rows="2" required></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="pop-tags">Tags</label>
+      <input type="text" id="pop-tags" placeholder="e.g. docs, tool, setup">
+    </div>
+
+    <div class="actions">
+      <a href="http://127.0.0.1:7474" target="_blank" class="link-app">Open mygoogle</a>
+      <button type="submit" id="btn-save">Save</button>
+    </div>
+    <div id="pop-status" class="status hidden"></div>
+  </form>
+
+  <script src="popup.js"></script>
+</body>
+</html>

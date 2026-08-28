@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "mygoogle - Personal Memory Capture",
+  "version": "0.1.0",
+  "description": "One-click capture for commands, articles, quotes, and AI chat sessions into your local mygoogle brain.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:7474/*",
+    "http://localhost:7474/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "mygoogle Capture"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "quick-save": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "Quickly save selected text or active page to mygoogle"
+    }
+  }
+}
