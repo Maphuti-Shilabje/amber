@@ -1,0 +1,19 @@
+[project]
+name = "mygoogle"
+version = "0.1.0"
+description = "Personal developer search engine and memory hub"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "fastembed>=0.2.7",
+    "trafilatura>=1.8.0",
+    "numpy>=1.26.0",
+    "pydantic>=2.6.0",
+    "requests>=2.31.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
