@@ -35,7 +35,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize
     fetchStats();
-    loadRecentItems();
+    
+    // Check URL parameters for search query
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get("q");
+    if (initialQuery) {
+        currentQuery = initialQuery.trim();
+        searchInput.value = currentQuery;
+        btnClearSearch.classList.remove("hidden");
+        performSearch(currentQuery, currentFilter);
+    } else {
+        loadRecentItems();
+    }
 
     // Event Listeners
     searchInput.addEventListener("input", (e) => {
