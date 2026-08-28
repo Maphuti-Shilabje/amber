@@ -203,9 +203,17 @@ async def get_stats():
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+    @app.get("/favicon.ico")
+    async def serve_favicon():
+        favicon_file = STATIC_DIR / "favicon.svg"
+        if favicon_file.exists():
+            return FileResponse(str(favicon_file), media_type="image/svg+xml")
+        raise HTTPException(status_code=404)
+
     @app.get("/")
     async def serve_index():
         index_file = STATIC_DIR / "index.html"
         if index_file.exists():
             return FileResponse(str(index_file))
         return {"status": "ok", "message": "mygoogle daemon running. Web UI not found in static dir."}
+
