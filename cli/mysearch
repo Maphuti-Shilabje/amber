@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+# mysearch - Terminal search client for mygoogle
+
+set -e
+
+HOST="${MYGOOGLE_HOST:-127.0.0.1}"
+PORT="${MYGOOGLE_PORT:-7474}"
+API_URL="http://${HOST}:${PORT}/api/search"
+TOUCH_URL="http://${HOST}:${PORT}/api/items"
+
+QUERY=""
+ITEM_TYPE=""
+LIMIT=10
+COPY_FIRST=false
+OPEN_FIRST=false
+INTERACTIVE=false
+
+show_help() {
+    cat << EOF
+mysearch - Personal search and retrieval CLI
+
+Usage:
+  mysearch <query>
+  mysearch -t command <query>
+  mysearch -c <query>           (Copy top matching payload directly to clipboard)
+  mysearch -o <query>           (Open top matching URL directly in browser)
+  mysearch -i [query]           (Interactive fzf mode)
+
+Options:
+  -t, --type <type>             Filter: command | snippet | bookmark | highlight | ai_chat | note
+  -l, --limit <num>             Limit results (default: 10)
+  -c, --copy                    Copy top result payload to clipboard immediately
+  -o, --open                    Open top result in browser immediately
+  -i, --interactive             Interactive mode with fzf preview
+  -h, --help                    Show this help message
+EOF
+    exit 0
+}
+
+# Parse flags
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -t|--type)
+            ITEM_TYPE="$2"
+            shift 2
+            ;;
+        -l|--limit)
+            LIMIT="$2"
+            shift 2
+            ;;
+        -c|--copy)
+            COPY_FIRST=true
+            shift 1
+            ;;
+        -o|--open)
+            OPEN_FIRST=true
+            shift 1
+            ;;
+        -i|--interactive)
+            INTERACTIVE=true
+            shift 1
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            if [[ -z "$QUERY" ]]; then
+                QUERY="$1"
+            else
+                QUERY="$QUERY $1"
+            fi
+            shift 1
+            ;;
+    esac
+done
+
+if [[ -z "$QUERY" && "$INTERACTIVE" == false ]]; then
+    show_help
+fi
+
+# URL encode query
+ENCODED_QUERY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")
+PARAMS="q=${ENCODED_QUERY}&limit=${LIMIT}"
+if [[ -n "$ITEM_TYPE" ]]; then
+    PARAMS="${PARAMS}&type=${ITEM_TYPE}"
+fi
+
+# Query daemon
+RESPONSE=$(curl -s "${API_URL}?${PARAMS}" 2>/dev/null || true)
+
+if [[ -z "$RESPONSE" ]]; then
+    echo "Error: mygoogle daemon is not running on $HOST:$PORT"
+    echo "Start it with: uvicorn backend.app:app --port $PORT"
+    exit 1
+fi
+
+TOTAL_HITS=$(echo "$RESPONSE" | jq -r '.total_hits // 0')
+ELAPSED_MS=$(echo "$RESPONSE" | jq -r '.elapsed_ms // 0')
+
+if [[ "$TOTAL_HITS" -eq 0 ]]; then
+    echo "No results found for '$QUERY' (${ELAPSED_MS}ms)."
+    exit 0
+fi
+
+# Function to copy text to clipboard
+copy_to_clipboard() {
+    local text="$1"
+    if command -v wl-copy &>/dev/null; then
+        echo -n "$text" | wl-copy
+    elif command -v xclip &>/dev/null; then
+        echo -n "$text" | xclip -selection clipboard
+    else
+        echo "Clipboard utility (wl-copy or xclip) not found."
+        return 1
+    fi
+}
+
+# Function to touch item
+touch_item() {
+    local item_id="$1"
+    curl -s -X POST "${TOUCH_URL}/${item_id}/touch" >/dev/null 2>&1 || true
+}
+
+# Handle --copy flag
+if [[ "$COPY_FIRST" == true ]]; then
+    TOP_ID=$(echo "$RESPONSE" | jq -r '.results[0].id')
+    TOP_PAYLOAD=$(echo "$RESPONSE" | jq -r '.results[0].payload')
+    TOP_TITLE=$(echo "$RESPONSE" | jq -r '.results[0].title')
+    copy_to_clipboard "$TOP_PAYLOAD"
+    touch_item "$TOP_ID"
+    echo "[COPIED TO CLIPBOARD] $TOP_TITLE"
+    echo "$TOP_PAYLOAD"
+    exit 0
+fi
+
+# Handle --open flag
+if [[ "$OPEN_FIRST" == true ]]; then
+    TOP_ID=$(echo "$RESPONSE" | jq -r '.results[0].id')
+    TOP_URL=$(echo "$RESPONSE" | jq -r '.results[0].source_url // .results[0].payload')
+    TOP_TITLE=$(echo "$RESPONSE" | jq -r '.results[0].title')
+    touch_item "$TOP_ID"
+    echo "[OPENING IN BROWSER] $TOP_TITLE -> $TOP_URL"
+    xdg-open "$TOP_URL" >/dev/null 2>&1 || sensible-browser "$TOP_URL" >/dev/null 2>&1 || true
+    exit 0
+fi
+
+# Interactive fzf mode if requested and fzf is installed
+if [[ "$INTERACTIVE" == true ]] && command -v fzf &>/dev/null; then
+    # Format entries for fzf
+    SELECTION=$(echo "$RESPONSE" | jq -r '.results[] | "\(.id)\t[\(.type)] \(.title)\t\(.payload)"' | \
+        fzf --delimiter="\t" --with-nth=2 \
+            --preview="echo {} | cut -f1 | xargs -I@ curl -s 'http://${HOST}:${PORT}/api/items/@' | jq -r '\"Title: \" + .title + \"\nType: \" + .type + \"\nContext: \" + (.context // \"none\") + \"\nTags: \" + (.tags // \"none\") + \"\n\n--- PAYLOAD ---\n\" + .payload + \"\n\n--- NOTES ---\n\" + (.notes // \"\")'" \
+            --preview-window=right:55%:wrap \
+            --bind "ctrl-y:execute(echo {} | cut -f3 | wl-copy || echo {} | cut -f3 | xclip -selection clipboard)+abort" \
+            --header="Enter: View/Copy | Ctrl-Y: Direct Copy | Esc: Cancel" || true)
+
+    if [[ -n "$SELECTION" ]]; then
+        SEL_ID=$(echo "$SELECTION" | cut -f1)
+        SEL_PAYLOAD=$(echo "$SELECTION" | cut -f3)
+        copy_to_clipboard "$SEL_PAYLOAD"
+        touch_item "$SEL_ID"
+        echo "[COPIED] $SEL_PAYLOAD"
+    fi
+    exit 0
+fi
+
+# Standard Terminal Display
+BOLD="\033[1m"
+GREEN="\033[32m"
+CYAN="\033[36m"
+YELLOW="\033[33m"
+DIM="\033[2m"
+RESET="\033[0m"
+
+echo -e "${BOLD}Results for:${RESET} '${QUERY}' ${DIM}(${TOTAL_HITS} hits in ${ELAPSED_MS}ms)${RESET}\n"
+
+INDEX=1
+echo "$RESPONSE" | jq -c '.results[]' | while read -r item; do
+    ID=$(echo "$item" | jq -r '.id')
+    TYPE=$(echo "$item" | jq -r '.type')
+    TITLE=$(echo "$item" | jq -r '.title')
+    PAYLOAD=$(echo "$item" | jq -r '.payload')
+    CONTEXT=$(echo "$item" | jq -r '.context // empty')
+    SOURCE_URL=$(echo "$item" | jq -r '.source_url // empty')
+    NOTES=$(echo "$item" | jq -r '.notes // empty')
+    TAGS=$(echo "$item" | jq -r '.tags // empty')
+    USE_COUNT=$(echo "$item" | jq -r '.use_count // 0')
+
+    echo -e "${BOLD}${CYAN}[${INDEX}] [${TYPE}] ${TITLE}${RESET} ${DIM}(used ${USE_COUNT}x)${RESET}"
+    
+    # Render Action Card payload in bold/green block
+    echo -e "    ${GREEN}${PAYLOAD}${RESET}"
+    
+    if [[ -n "$NOTES" ]]; then
+        echo -e "    ${DIM}Notes: ${NOTES}${RESET}"
+    fi
+    if [[ -n "$CONTEXT" || -n "$TAGS" ]]; then
+        echo -e "    ${DIM}Context: ${CONTEXT:-none} | Tags: ${TAGS:-none}${RESET}"
+    fi
+    if [[ -n "$SOURCE_URL" ]]; then
+        echo -e "    ${DIM}URL: ${SOURCE_URL}${RESET}"
+    fi
+    echo ""
+    INDEX=$((INDEX + 1))
+done

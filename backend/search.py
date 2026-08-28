@@ -107,7 +107,8 @@ def search_vectors(query_vec: np.ndarray, limit: int = 40) -> List[Tuple[str, fl
 
     # Sort descending
     top_indices = np.argsort(scores)[::-1][:limit]
-    results = [(item_ids[idx], float(scores[idx])) for idx in top_indices if scores[idx] > 0.15]
+    # Filter out weak cosine scores (< 0.30)
+    results = [(item_ids[idx], float(scores[idx])) for idx in top_indices if scores[idx] >= 0.30]
     return results
 
 
