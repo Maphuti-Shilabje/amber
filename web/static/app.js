@@ -92,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Keyboard Shortcuts
     document.addEventListener("keydown", (e) => {
         // Focus search with '/'
-        if (e.key === "/" && document.activeElement !== searchInput && !modalIngest.classList.contains("active")) {
+        if (e.key === "/" && document.activeElement !== searchInput && modalIngest.classList.contains("hidden")) {
             e.preventDefault();
             searchInput.focus();
             searchInput.select();
@@ -197,6 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
             publicFallback.classList.remove("hidden");
         } catch (err) {
             console.error("Search error:", err);
+            showToast("Search failed — is the daemon running?");
         }
     }
 
@@ -217,6 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
             publicFallback.classList.add("hidden");
         } catch (err) {
             console.error("Load items error:", err);
+            showToast("Couldn't load items — is the daemon running?");
         }
     }
 
@@ -315,9 +317,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const deleteBtn = card.querySelector(".btn-delete");
             if (deleteBtn) {
+                let confirmTimer = null;
                 deleteBtn.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    deleteItem(item.id);
+                    if (deleteBtn.classList.contains("confirming")) {
+                        clearTimeout(confirmTimer);
+                        deleteItem(item.id);
+                        return;
+                    }
+                    deleteBtn.classList.add("confirming");
+                    deleteBtn.textContent = "Confirm ×";
+                    confirmTimer = setTimeout(() => {
+                        deleteBtn.classList.remove("confirming");
+                        deleteBtn.textContent = "Delete ×";
+                    }, 3000);
                 });
             }
 
@@ -376,21 +389,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function deleteItem(itemId) {
-        if (confirm("Delete this item from memory?")) {
-            try {
-                const res = await fetch(`/api/items/${itemId}`, { method: "DELETE" });
-                if (res.ok) {
-                    showToast("Item deleted");
-                    fetchStats();
-                    if (currentQuery.length > 0) {
-                        performSearch(currentQuery, currentFilter);
-                    } else {
-                        loadRecentItems();
-                    }
+        try {
+            const res = await fetch(`/api/items/${itemId}`, { method: "DELETE" });
+            if (res.ok) {
+                showToast("Item deleted");
+                fetchStats();
+                if (currentQuery.length > 0) {
+                    performSearch(currentQuery, currentFilter);
+                } else {
+                    loadRecentItems();
                 }
-            } catch (err) {
-                console.error("Delete error:", err);
+            } else {
+                showToast("Failed to delete item");
             }
+        } catch (err) {
+            console.error("Delete error:", err);
+            showToast("Error connecting to daemon");
         }
     }
 
@@ -402,13 +416,44 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 2200);
     }
 
+    let lastFocusedBeforeModal = null;
+
+    function getFocusableModalElements() {
+        return Array.from(
+            modalIngest.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+        ).filter(el => !el.disabled && el.offsetParent !== null);
+    }
+
+    function trapModalFocus(e) {
+        if (e.key !== "Tab") return;
+        const focusable = getFocusableModalElements();
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    }
+
     function openModal() {
+        lastFocusedBeforeModal = document.activeElement;
         modalIngest.classList.remove("hidden");
         document.getElementById("input-title").focus();
+        modalIngest.addEventListener("keydown", trapModalFocus);
     }
 
     function closeModal() {
         modalIngest.classList.add("hidden");
+        modalIngest.removeEventListener("keydown", trapModalFocus);
+        if (lastFocusedBeforeModal) {
+            lastFocusedBeforeModal.focus();
+            lastFocusedBeforeModal = null;
+        }
     }
 
     function escapeHtml(str) {
