@@ -174,7 +174,7 @@ Run the automated test suite:
 
 ## Author
 
-Created and maintained by **Maphuti Shilabje** ([Fretak](https://fretak.com)).
+Created and maintained by **Maphuti Shilabje**.
 
 ---
 
