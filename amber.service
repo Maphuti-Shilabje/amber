@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Documents/projects/mygoogle
-ExecStart=%h/Documents/projects/mygoogle/.venv/bin/uvicorn backend.app:app --host 127.0.0.1 --port 7474
+WorkingDirectory=%h/Documents/projects/amber
+ExecStart=%h/Documents/projects/amber/.venv/bin/uvicorn backend.app:app --host 127.0.0.1 --port 7474
 Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
