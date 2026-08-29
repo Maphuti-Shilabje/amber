@@ -211,11 +211,14 @@ async def get_stats():
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-    @app.get("/favicon.ico")
+    @app.api_route("/favicon.ico", methods=["GET", "HEAD"])
     async def serve_favicon():
-        favicon_file = STATIC_DIR / "favicon.svg"
-        if favicon_file.exists():
-            return FileResponse(str(favicon_file), media_type="image/svg+xml")
+        ico_file = STATIC_DIR / "favicon.ico"
+        if ico_file.exists():
+            return FileResponse(str(ico_file), media_type="image/x-icon")
+        svg_file = STATIC_DIR / "favicon.svg"
+        if svg_file.exists():
+            return FileResponse(str(svg_file), media_type="image/svg+xml")
         raise HTTPException(status_code=404)
 
     @app.get("/")

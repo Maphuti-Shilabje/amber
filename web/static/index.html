@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amber</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-32.png">
+    <link rel="apple-touch-icon" sizes="128x128" href="/static/icons/icon-128.png">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -12,6 +14,12 @@
         <!-- Header -->
         <header class="header">
             <div class="logo-area">
+                <svg class="logo-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                    <path d="M6.5 4h11L21 9.5 12 20.5 3 9.5Z" fill="#f5a623"/>
+                    <path d="M6.5 4h11L21 9.5H3Z" fill="#ffc25c"/>
+                    <path d="M3 9.5h18M9.5 4 6.7 9.5 12 18.5l5.3-9L14.5 4" fill="none" stroke="#0a0a0b" stroke-width="0.6" stroke-linejoin="round" opacity="0.55"/>
+                    <circle cx="13.6" cy="13.2" r="1.15" fill="#7a4416"/>
+                </svg>
                 <span class="logo-text">amber</span>
                 <span class="logo-tag">local</span>
             </div>
@@ -23,7 +31,7 @@
                 <button id="btn-open-ingest" class="btn btn-secondary">+ Ingest</button>
             </div>
         </header>
-
+        
         <!-- Main Search Section -->
         <main class="main-content">
             <div class="search-box-wrapper">
