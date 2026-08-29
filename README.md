@@ -16,6 +16,10 @@ mygoogle is designed to solve developer fragmentation, bookmark silos, and repet
 - web/: Minimalist omnibox frontend served directly by the backend daemon.
 - extension/: Manifest V3 browser extension for Chrome, Brave, Edge, and Firefox.
 - tests/: Integration test suite.
+- CONFIGURATION.md: Complete reference for all search hyperparameters, BM25 weights, and tuning recipes.
+
+## Configuration & Tuning
+All hyperparameters (similarity thresholds, BM25 weights, RRF constants, and usage boosts) can be customized via environment variables or a `.env` file. See [CONFIGURATION.md](file:///home/maphuti/Documents/projects/mygoogle/CONFIGURATION.md) for full documentation and tuning recipes.
 
 ## Setup and Installation
 
