@@ -127,6 +127,10 @@ def handle_interactive(query: str, item_type: str = ""):
     p = os.environ.get("AMBER_PORT", str(PORT))
     env["AMBER_HOST"] = h
     env["AMBER_PORT"] = p
+    
+    # Ensure package root is always in PYTHONPATH regardless of cwd
+    pkg_root = str(Path(__file__).resolve().parent.parent)
+    env["PYTHONPATH"] = pkg_root + (":" + env["PYTHONPATH"] if "PYTHONPATH" in env else "")
 
     # Fetch initial list
     initial_items = fetch_fzf_items(query, item_type)
@@ -134,11 +138,12 @@ def handle_interactive(query: str, item_type: str = ""):
         print("No items in memory found.", file=sys.stderr)
         sys.exit(0)
 
+    py_exe = sys.executable
     fzf_args = [
         "fzf",
         "--query", query,
         "--disabled",
-        "--bind", f'change:reload(python3 -m backend.cli _fzf_fetch {{q}} "{item_type}")',
+        "--bind", f'change:reload("{py_exe}" -m backend.cli _fzf_fetch {{q}} "{item_type}")',
         "--delimiter", "\t",
         "--with-nth", "1,2",
         "--preview", f'echo {{}} | cut -f4 | xargs -I@ curl -s "{base_url}/api/items/@" | jq -r \'"Title: " + .title + "\nType: " + .type + "\nContext: " + (.context // "none") + "\nTags: " + (.tags // "none") + "\n\n--- PAYLOAD ---\n" + .payload + "\n\n--- NOTES ---\n" + (.notes // "")\'',
