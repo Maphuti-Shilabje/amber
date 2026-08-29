@@ -745,3 +745,73 @@ input:focus, select:focus, textarea:focus {
 .hidden {
     display: none !important;
 }
+
+/* -----------------------------------------------------------------------------
+   Empty States & Shimmer Loading Skeletons
+   ----------------------------------------------------------------------------- */
+.empty-state-card {
+    padding: 36px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(15, 18, 25, 0.4);
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.empty-state-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+.empty-state-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    max-width: 500px;
+    line-height: 1.5;
+}
+
+.skeleton-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: shimmerPulse 1.6s ease-in-out infinite;
+}
+
+.skeleton-line {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-title {
+    width: 35%;
+    height: 16px;
+}
+
+.skeleton-payload {
+    width: 100%;
+    height: 48px;
+}
+
+.skeleton-footer {
+    width: 25%;
+    height: 12px;
+}
+
+@keyframes shimmerPulse {
+    0%, 100% {
+        opacity: 0.35;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+

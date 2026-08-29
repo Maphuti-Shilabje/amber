@@ -1,7 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-  <rect width="24" height="24" rx="5" fill="#0a0a0b"/>
-  <path d="M6.5 4h11L21 9.5 12 20.5 3 9.5Z" fill="#f5a623"/>
-  <path d="M6.5 4h11L21 9.5H3Z" fill="#ffc25c"/>
-  <path d="M3 9.5h18M9.5 4 6.7 9.5 12 18.5l5.3-9L14.5 4" fill="none" stroke="#0a0a0b" stroke-width="0.6" stroke-linejoin="round" opacity="0.55"/>
-  <circle cx="13.6" cy="13.2" r="1.15" fill="#7a4416"/>
+  <style>
+    .bg { fill: #0a0a0b; stroke: transparent; }
+    .jewel-base { fill: #f5a623; }
+    .jewel-crown { fill: #ffc25c; }
+    .facet-lines { stroke: #0a0a0b; opacity: 0.55; }
+    .inclusion { fill: #7a4416; }
+
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #ffffff; stroke: #e2e8f0; stroke-width: 0.8; }
+      .jewel-base { fill: #d97706; }
+      .jewel-crown { fill: #f59e0b; }
+      .facet-lines { stroke: #78350f; opacity: 0.75; }
+      .inclusion { fill: #451a03; }
+    }
+  </style>
+  <rect class="bg" width="24" height="24" rx="5"/>
+  <path class="jewel-base" d="M6.5 4h11L21 9.5 12 20.5 3 9.5Z"/>
+  <path class="jewel-crown" d="M6.5 4h11L21 9.5H3Z"/>
+  <path class="facet-lines" d="M3 9.5h18M9.5 4 6.7 9.5 12 18.5l5.3-9L14.5 4" fill="none" stroke-width="0.6" stroke-linejoin="round"/>
+  <circle class="inclusion" cx="13.6" cy="13.2" r="1.15"/>
 </svg>

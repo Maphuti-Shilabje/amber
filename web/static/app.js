@@ -1,4 +1,4 @@
-// mygoogle - Web Omnibox Client
+// Amber - Web Omnibox Client
 
 document.addEventListener("DOMContentLoaded", () => {
     // DOM Elements
@@ -33,7 +33,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let selectedIndex = -1;
     let currentResults = [];
 
-    // Initialize
+    // Initialize with loading skeleton
+    renderLoadingSkeleton();
     fetchStats();
     
     // Check URL parameters for search query
@@ -240,14 +241,31 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // Render Loading Skeleton Shimmer
+    function renderLoadingSkeleton() {
+        resultsContainer.innerHTML = `
+            <div class="skeleton-card">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line skeleton-payload"></div>
+                <div class="skeleton-line skeleton-footer"></div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line skeleton-payload"></div>
+                <div class="skeleton-line skeleton-footer"></div>
+            </div>
+        `;
+    }
+
     // Render Cards
     function renderResults(items, isRecent = false) {
         resultsContainer.innerHTML = "";
 
         if (items.length === 0) {
             resultsContainer.innerHTML = `
-                <div class="result-card">
-                    <span class="result-notes">${isRecent ? "No items in memory yet. Use the '+ Ingest' button or CLI to add one." : "No memory matches found."}</span>
+                <div class="result-card empty-state-card">
+                    <span class="empty-state-title">${isRecent ? "Nothing preserved in amber yet" : "No traces found in amber"}</span>
+                    <span class="empty-state-subtitle">${isRecent ? "Capture shell commands, web highlights, or AI recipes using Alt+S in your browser or the '+ Ingest' button above." : "Preserved items are kept exact. You can search the public web below or ingest a new record."}</span>
                 </div>
             `;
             return;
