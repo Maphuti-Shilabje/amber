@@ -6,6 +6,7 @@ set -e
 HOST="${MYGOOGLE_HOST:-127.0.0.1}"
 PORT="${MYGOOGLE_PORT:-7474}"
 API_URL="http://${HOST}:${PORT}/api/search"
+ITEMS_URL="http://${HOST}:${PORT}/api/items"
 TOUCH_URL="http://${HOST}:${PORT}/api/items"
 
 QUERY=""
@@ -21,10 +22,10 @@ mysearch - Personal search and retrieval CLI
 
 Usage:
   mysearch <query>
-  mysearch -t command <query>
+  mysearch -i [query]           (Interactive fzf mode with live preview)
+  mysearch -t command <query>   (Filter by type)
   mysearch -c <query>           (Copy top matching payload directly to clipboard)
   mysearch -o <query>           (Open top matching URL directly in browser)
-  mysearch -i [query]           (Interactive fzf mode)
 
 Options:
   -t, --type <type>             Filter: command | snippet | bookmark | highlight | ai_chat | note
@@ -78,30 +79,6 @@ if [[ -z "$QUERY" && "$INTERACTIVE" == false ]]; then
     show_help
 fi
 
-# URL encode query
-ENCODED_QUERY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")
-PARAMS="q=${ENCODED_QUERY}&limit=${LIMIT}"
-if [[ -n "$ITEM_TYPE" ]]; then
-    PARAMS="${PARAMS}&type=${ITEM_TYPE}"
-fi
-
-# Query daemon
-RESPONSE=$(curl -s "${API_URL}?${PARAMS}" 2>/dev/null || true)
-
-if [[ -z "$RESPONSE" ]]; then
-    echo "Error: mygoogle daemon is not running on $HOST:$PORT"
-    echo "Start it with: uvicorn backend.app:app --port $PORT"
-    exit 1
-fi
-
-TOTAL_HITS=$(echo "$RESPONSE" | jq -r '.total_hits // 0')
-ELAPSED_MS=$(echo "$RESPONSE" | jq -r '.elapsed_ms // 0')
-
-if [[ "$TOTAL_HITS" -eq 0 ]]; then
-    echo "No results found for '$QUERY' (${ELAPSED_MS}ms)."
-    exit 0
-fi
-
 # Function to copy text to clipboard
 copy_to_clipboard() {
     local text="$1"
@@ -120,6 +97,83 @@ touch_item() {
     local item_id="$1"
     curl -s -X POST "${TOUCH_URL}/${item_id}/touch" >/dev/null 2>&1 || true
 }
+
+# -------------------------------------------------------------
+# Interactive fzf mode
+# -------------------------------------------------------------
+if [[ "$INTERACTIVE" == true ]]; then
+    if ! command -v fzf &>/dev/null; then
+        echo "Error: fzf is not installed."
+        echo "Install it with: sudo apt install fzf (or your package manager)"
+        exit 1
+    fi
+
+    # If query is empty, fetch all recent items; otherwise run search
+    if [[ -z "$QUERY" ]]; then
+        PARAMS="limit=150"
+        if [[ -n "$ITEM_TYPE" ]]; then
+            PARAMS="${PARAMS}&type=${ITEM_TYPE}"
+        fi
+        RAW_RESPONSE=$(curl -s "${ITEMS_URL}?${PARAMS}" 2>/dev/null || true)
+        ITEMS=$(echo "$RAW_RESPONSE" | jq -r '.items[]? | "\(.id)\t[\(.type)] \(.title)\t\(.payload)"')
+    else
+        ENCODED_QUERY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")
+        PARAMS="q=${ENCODED_QUERY}&limit=100"
+        if [[ -n "$ITEM_TYPE" ]]; then
+            PARAMS="${PARAMS}&type=${ITEM_TYPE}"
+        fi
+        RAW_RESPONSE=$(curl -s "${API_URL}?${PARAMS}" 2>/dev/null || true)
+        ITEMS=$(echo "$RAW_RESPONSE" | jq -r '.results[]? | "\(.id)\t[\(.type)] \(.title)\t\(.payload)"')
+    fi
+
+    if [[ -z "$ITEMS" ]]; then
+        echo "No items in memory found."
+        exit 0
+    fi
+
+    SELECTION=$(echo "$ITEMS" | fzf --delimiter="\t" --with-nth=2 \
+        --query="$QUERY" \
+        --preview="echo {} | cut -f1 | xargs -I@ curl -s 'http://${HOST}:${PORT}/api/items/@' | jq -r '\"Title: \" + .title + \"\nType: \" + .type + \"\nContext: \" + (.context // \"none\") + \"\nTags: \" + (.tags // \"none\") + \"\n\n--- PAYLOAD ---\n\" + .payload + \"\n\n--- NOTES ---\n\" + (.notes // \"\")'" \
+        --preview-window=right:55%:wrap \
+        --bind "ctrl-y:execute(echo {} | cut -f3 | wl-copy || echo {} | cut -f3 | xclip -selection clipboard)+abort" \
+        --header="Enter: Copy Payload | Ctrl-Y: Quick Copy | Esc: Cancel" || true)
+
+    if [[ -n "$SELECTION" ]]; then
+        SEL_ID=$(echo "$SELECTION" | cut -f1)
+        SEL_TITLE=$(echo "$SELECTION" | cut -f2)
+        SEL_PAYLOAD=$(echo "$SELECTION" | cut -f3)
+        copy_to_clipboard "$SEL_PAYLOAD"
+        touch_item "$SEL_ID"
+        echo "[COPIED] $SEL_TITLE"
+        echo "$SEL_PAYLOAD"
+    fi
+    exit 0
+fi
+
+# -------------------------------------------------------------
+# Standard Terminal Search
+# -------------------------------------------------------------
+ENCODED_QUERY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")
+PARAMS="q=${ENCODED_QUERY}&limit=${LIMIT}"
+if [[ -n "$ITEM_TYPE" ]]; then
+    PARAMS="${PARAMS}&type=${ITEM_TYPE}"
+fi
+
+RESPONSE=$(curl -s "${API_URL}?${PARAMS}" 2>/dev/null || true)
+
+if [[ -z "$RESPONSE" ]]; then
+    echo "Error: mygoogle daemon is not running on $HOST:$PORT"
+    echo "Start it with: uvicorn backend.app:app --port $PORT"
+    exit 1
+fi
+
+TOTAL_HITS=$(echo "$RESPONSE" | jq -r '.total_hits // 0')
+ELAPSED_MS=$(echo "$RESPONSE" | jq -r '.elapsed_ms // 0')
+
+if [[ "$TOTAL_HITS" -eq 0 ]]; then
+    echo "No results found for '$QUERY' (${ELAPSED_MS}ms)."
+    exit 0
+fi
 
 # Handle --copy flag
 if [[ "$COPY_FIRST" == true ]]; then
@@ -141,26 +195,6 @@ if [[ "$OPEN_FIRST" == true ]]; then
     touch_item "$TOP_ID"
     echo "[OPENING IN BROWSER] $TOP_TITLE -> $TOP_URL"
     xdg-open "$TOP_URL" >/dev/null 2>&1 || sensible-browser "$TOP_URL" >/dev/null 2>&1 || true
-    exit 0
-fi
-
-# Interactive fzf mode if requested and fzf is installed
-if [[ "$INTERACTIVE" == true ]] && command -v fzf &>/dev/null; then
-    # Format entries for fzf
-    SELECTION=$(echo "$RESPONSE" | jq -r '.results[] | "\(.id)\t[\(.type)] \(.title)\t\(.payload)"' | \
-        fzf --delimiter="\t" --with-nth=2 \
-            --preview="echo {} | cut -f1 | xargs -I@ curl -s 'http://${HOST}:${PORT}/api/items/@' | jq -r '\"Title: \" + .title + \"\nType: \" + .type + \"\nContext: \" + (.context // \"none\") + \"\nTags: \" + (.tags // \"none\") + \"\n\n--- PAYLOAD ---\n\" + .payload + \"\n\n--- NOTES ---\n\" + (.notes // \"\")'" \
-            --preview-window=right:55%:wrap \
-            --bind "ctrl-y:execute(echo {} | cut -f3 | wl-copy || echo {} | cut -f3 | xclip -selection clipboard)+abort" \
-            --header="Enter: View/Copy | Ctrl-Y: Direct Copy | Esc: Cancel" || true)
-
-    if [[ -n "$SELECTION" ]]; then
-        SEL_ID=$(echo "$SELECTION" | cut -f1)
-        SEL_PAYLOAD=$(echo "$SELECTION" | cut -f3)
-        copy_to_clipboard "$SEL_PAYLOAD"
-        touch_item "$SEL_ID"
-        echo "[COPIED] $SEL_PAYLOAD"
-    fi
     exit 0
 fi
 

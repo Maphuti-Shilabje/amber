@@ -35,6 +35,53 @@ function extractSelectionFromPage() {
   return text ? text.trim() : "";
 }
 
+// Injects an in-page toast notification directly on the active web page
+function showToastInTab(tabId, message, color = "#238636") {
+  if (!tabId) return;
+  chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    func: (msg, borderColor) => {
+      let toast = document.getElementById("mygoogle-inpage-toast");
+      if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "mygoogle-inpage-toast";
+        toast.style.cssText = `
+          position: fixed;
+          top: 24px;
+          right: 24px;
+          z-index: 2147483647;
+          background: #0d1117;
+          color: #f0f6fc;
+          border: 1px solid #30363d;
+          border-left: 4px solid ${borderColor};
+          padding: 10px 16px;
+          border-radius: 6px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+          pointer-events: none;
+          opacity: 0;
+          transform: translateY(-10px);
+          transition: opacity 0.2s ease, transform 0.2s ease;
+        `;
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      requestAnimationFrame(() => {
+        toast.style.opacity = "1";
+        toast.style.transform = "translateY(0)";
+      });
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(-10px)";
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    },
+    args: [message, color]
+  }).catch(() => {});
+}
+
 // Setup context menus on install
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -59,7 +106,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       payload: info.selectionText.trim(),
       source_url: tab && tab.url ? tab.url : null,
       auto_scrape: false
-    }, "CLIP");
+    }, "CLIP", tab ? tab.id : null, "Quote saved to mygoogle");
   } else if (info.menuItemId === "save-page" && tab) {
     const restricted = isRestrictedUrl(tab.url);
     await saveToMyGoogle({
@@ -68,7 +115,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       payload: tab.url,
       source_url: tab.url,
       auto_scrape: !restricted
-    }, "BOOK");
+    }, "BOOK", tab.id, "Bookmark saved to mygoogle");
   }
 });
 
@@ -102,7 +149,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         payload: selectedText,
         source_url: tab.url,
         auto_scrape: false
-      }, "CLIP");
+      }, "CLIP", tab.id, "Quote clipped to mygoogle");
     } else if (tab.url) {
       await saveToMyGoogle({
         type: "bookmark",
@@ -110,13 +157,13 @@ chrome.commands.onCommand.addListener(async (command) => {
         payload: tab.url,
         source_url: tab.url,
         auto_scrape: !restricted
-      }, "BOOK");
+      }, "BOOK", tab.id, "Bookmark saved to mygoogle");
     }
   }
 });
 
-// Save to local daemon with badge feedback
-async function saveToMyGoogle(data, badgeText = "OK") {
+// Save to local daemon with badge feedback and in-page toast
+async function saveToMyGoogle(data, badgeText = "OK", tabId = null, toastMessage = "Saved to mygoogle") {
   try {
     const res = await fetch(`${API_BASE}/api/ingest`, {
       method: "POST",
@@ -127,12 +174,21 @@ async function saveToMyGoogle(data, badgeText = "OK") {
     if (res.ok) {
       const color = badgeText === "CLIP" ? "#d29922" : "#238636";
       flashBadge(badgeText, color);
+      if (tabId) {
+        showToastInTab(tabId, toastMessage, color);
+      }
     } else {
       flashBadge("ERR", "#d73a49");
+      if (tabId) {
+        showToastInTab(tabId, "Failed to save to mygoogle", "#d73a49");
+      }
     }
   } catch (err) {
     console.error("Failed to connect to mygoogle daemon:", err);
     flashBadge("OFF", "#8b949e");
+    if (tabId) {
+      showToastInTab(tabId, "mygoogle daemon offline", "#8b949e");
+    }
   }
 }
 
