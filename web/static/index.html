@@ -16,7 +16,10 @@
                 <span class="logo-tag">local</span>
             </div>
             <div class="header-actions">
-                <span id="stats-counter" class="stats-badge">0 items</span>
+                <span id="stats-counter" class="stats-badge">
+                    <span class="status-dot"></span>
+                    <span id="stats-text">0 items</span>
+                </span>
                 <button id="btn-open-ingest" class="btn btn-secondary">+ Ingest</button>
             </div>
         </header>
@@ -29,11 +32,12 @@
                     <input 
                         type="text" 
                         id="search-input" 
-                        placeholder="Search commands, docs, coffee roasters, notes... (Press '/' to focus)" 
+                        placeholder="Search commands, docs, coffee roasters, notes..." 
                         autocomplete="off"
                         autofocus
                     >
-                    <button id="btn-clear-search" class="btn-clear hidden" title="Clear search">x</button>
+                    <button id="btn-clear-search" class="btn-clear hidden" title="Clear search">×</button>
+                    <span class="keycap-badge">/</span>
                 </div>
 
                 <!-- Filter Chips -->
@@ -62,10 +66,10 @@
             <div id="public-fallback" class="public-fallback hidden">
                 <span class="fallback-label">Not found in your memory? Search public web:</span>
                 <div class="fallback-links">
-                    <a id="link-google" href="#" target="_blank" class="fallback-btn">Google</a>
-                    <a id="link-ddg" href="#" target="_blank" class="fallback-btn">DuckDuckGo</a>
-                    <a id="link-github" href="#" target="_blank" class="fallback-btn">GitHub</a>
-                    <a id="link-kagi" href="#" target="_blank" class="fallback-btn">Kagi</a>
+                    <a id="link-google" href="#" target="_blank" class="fallback-btn">Google ↗</a>
+                    <a id="link-ddg" href="#" target="_blank" class="fallback-btn">DuckDuckGo ↗</a>
+                    <a id="link-github" href="#" target="_blank" class="fallback-btn">GitHub ↗</a>
+                    <a id="link-kagi" href="#" target="_blank" class="fallback-btn">Kagi ↗</a>
                 </div>
             </div>
         </main>
@@ -77,8 +81,8 @@
         <div id="modal-ingest" class="modal-overlay hidden">
             <div class="modal-card">
                 <div class="modal-header">
-                    <h3>Ingest New Item</h3>
-                    <button id="btn-close-modal" class="btn-close">x</button>
+                    <h3>Ingest New Memory</h3>
+                    <button id="btn-close-modal" class="btn-close">×</button>
                 </div>
                 <form id="form-ingest" class="modal-form">
                     <div class="form-group">
@@ -87,14 +91,14 @@
                             <option value="command">Command (CLI / Script)</option>
                             <option value="bookmark">Bookmark (URL)</option>
                             <option value="highlight">Highlight (Quote)</option>
-                            <option value="ai_chat">AI Chat / Recipe</option>
+                            <option value="ai_chat">AI Chat / Process</option>
                             <option value="note">Note / Scratchpad</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label for="input-title">Title / Summary</label>
-                        <input type="text" id="input-title" placeholder="e.g. Docker nuclear cleanup" required>
+                        <input type="text" id="input-title" placeholder="e.g. Docker complete cleanup" required>
                     </div>
 
                     <div class="form-group">

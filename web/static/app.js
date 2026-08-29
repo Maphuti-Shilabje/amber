@@ -224,9 +224,17 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const res = await fetch("/api/stats");
             const data = await res.json();
-            statsCounter.textContent = `${data.total_items} items indexed`;
+            const statsText = document.getElementById("stats-text");
+            if (statsText) {
+                statsText.textContent = `${data.total_items} memory records`;
+            } else if (statsCounter) {
+                statsCounter.textContent = `${data.total_items} memory records`;
+            }
         } catch (err) {
-            statsCounter.textContent = "daemon offline";
+            const statsText = document.getElementById("stats-text");
+            if (statsText) {
+                statsText.textContent = "daemon offline";
+            }
         }
     }
 
@@ -268,9 +276,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         <span class="result-title">${escapeHtml(item.title)}</span>
                     </div>
                     <div class="result-actions">
-                        ${isCode || isHighlight ? `<button class="btn-card-action btn-copy" data-id="${item.id}">Copy</button>` : ""}
-                        ${item.source_url ? `<a href="${escapeHtml(item.source_url)}" target="_blank" class="btn-card-action btn-visit" data-id="${item.id}">Visit</a>` : ""}
-                        <button class="btn-card-action btn-delete" data-id="${item.id}">Delete</button>
+                        ${isCode || isHighlight ? `<button class="btn-card-action btn-copy" data-id="${item.id}">Copy ↵</button>` : ""}
+                        ${item.source_url ? `<a href="${escapeHtml(item.source_url)}" target="_blank" class="btn-card-action btn-visit" data-id="${item.id}">Visit ↗</a>` : ""}
+                        <button class="btn-card-action btn-delete" data-id="${item.id}">Delete ×</button>
                     </div>
                 </div>
 
