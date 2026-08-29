@@ -1,0 +1,394 @@
+#!/usr/bin/env bash
+# amber - Unified CLI for Amber (Memory, Commands & Knowledge Retrieval)
+
+set -e
+
+HOST="${AMBER_HOST:-127.0.0.1}"
+PORT="${AMBER_PORT:-7474}"
+API_URL="http://${HOST}:${PORT}/api/search"
+ITEMS_URL="http://${HOST}:${PORT}/api/items"
+INGEST_URL="http://${HOST}:${PORT}/api/ingest"
+TOUCH_URL="http://${HOST}:${PORT}/api/items"
+
+show_help() {
+    cat << EOF
+amber - Personal memory, command preservation & retrieval tool
+
+Usage:
+  amber <query>                 Search preserved memory
+  amber -i [query]              Interactive fzf mode with live preview
+  amber -c <query>              Search & copy top matching payload to clipboard
+  amber -o <query>              Search & open top matching URL in browser
+  amber save [options]          Preserve a command, bookmark, or note
+
+Search Options:
+  -t, --type <type>             Filter by type: command | snippet | bookmark | highlight | ai_chat | note
+  -l, --limit <num>             Limit results (default: 10)
+  -c, --copy                    Copy top result payload directly to clipboard
+  -o, --open                    Open top result in browser
+  -i, --interactive             Interactive fzf mode with side-by-side preview
+  -h, --help                    Show this help message
+
+Save Options (amber save ...):
+  -c, --cmd <command>           Preserve a shell command or script
+  -u, --url <url>               Preserve a bookmark URL (with auto-scraping)
+  -q, --quote <text>            Preserve a highlighted quote
+  -p, --payload <text>          Generic payload text
+  -t, --title <title>           Title or description
+  -n, --notes <notes>           Explanations, context, or cheat notes
+  -g, --tags <tags>             Comma-separated tags (e.g. docker,cli)
+  --context <context>           Environment context (e.g. Ubuntu, Bash)
+  --no-scrape                   Disable auto web scraping for URLs
+
+Examples:
+  amber "venv"
+  amber -c "venv"
+  amber -i
+  amber save -c "docker system prune -a --volumes -f" -t "Docker nuclear cleanup" -g "docker,cleanup"
+  amber save -u "https://onyxcoffeelab.com" -t "Onyx Coffee" -n "Ethiopian blueberry beans"
+  echo "tar -czvf archive.tar.gz folder/" | amber save -c -t "Create tar archive"
+EOF
+    exit 0
+}
+
+# Function to copy text to clipboard
+copy_to_clipboard() {
+    local text="$1"
+    if command -v wl-copy &>/dev/null; then
+        echo -n "$text" | wl-copy
+    elif command -v xclip &>/dev/null; then
+        echo -n "$text" | xclip -selection clipboard
+    else
+        echo "Clipboard utility (wl-copy or xclip) not found."
+        return 1
+    fi
+}
+
+# Function to touch item
+touch_item() {
+    local item_id="$1"
+    curl -s -X POST "${TOUCH_URL}/${item_id}/touch" >/dev/null 2>&1 || true
+}
+
+# -----------------------------------------------------------------------------
+# Handle Subcommand: save
+# -----------------------------------------------------------------------------
+if [[ "$1" == "save" ]]; then
+    shift 1
+    TYPE=""
+    TITLE=""
+    PAYLOAD=""
+    CONTEXT=""
+    SOURCE_URL=""
+    NOTES=""
+    TAGS=""
+    AUTO_SCRAPE="true"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -c|--cmd|--command)
+                TYPE="command"
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    PAYLOAD="$2"
+                    shift 2
+                else
+                    shift 1
+                fi
+                ;;
+            -u|--url)
+                TYPE="bookmark"
+                SOURCE_URL="$2"
+                PAYLOAD="$2"
+                shift 2
+                ;;
+            -q|--quote)
+                TYPE="highlight"
+                PAYLOAD="$2"
+                shift 2
+                ;;
+            -p|--payload)
+                PAYLOAD="$2"
+                shift 2
+                ;;
+            --type)
+                TYPE="$2"
+                shift 2
+                ;;
+            -t|--title)
+                TITLE="$2"
+                shift 2
+                ;;
+            -n|--notes)
+                NOTES="$2"
+                shift 2
+                ;;
+            -g|--tags)
+                TAGS="$2"
+                shift 2
+                ;;
+            --context)
+                CONTEXT="$2"
+                shift 2
+                ;;
+            --no-scrape)
+                AUTO_SCRAPE="false"
+                shift 1
+                ;;
+            -h|--help)
+                show_help
+                ;;
+            *)
+                if [[ -z "$TITLE" ]]; then
+                    TITLE="$1"
+                elif [[ -z "$PAYLOAD" ]]; then
+                    PAYLOAD="$1"
+                fi
+                shift 1
+                ;;
+        esac
+    done
+
+    # Read from stdin if payload is empty and stdin is piped
+    if [[ -z "$PAYLOAD" && ! -t 0 ]]; then
+        PAYLOAD=$(cat)
+    fi
+
+    if [[ -z "$TYPE" ]]; then
+        TYPE="note"
+    fi
+
+    if [[ -z "$TITLE" ]]; then
+        if [[ -n "$PAYLOAD" ]]; then
+            TITLE=$(echo "$PAYLOAD" | head -n 1 | cut -c 1-50)
+        else
+            echo "Error: Missing required title or payload."
+            exit 1
+        fi
+    fi
+
+    if [[ -z "$PAYLOAD" ]]; then
+        PAYLOAD="$TITLE"
+    fi
+
+    JSON_DATA=$(jq -n \
+        --arg type "$TYPE" \
+        --arg title "$TITLE" \
+        --arg payload "$PAYLOAD" \
+        --arg context "$CONTEXT" \
+        --arg source_url "$SOURCE_URL" \
+        --arg notes "$NOTES" \
+        --arg tags "$TAGS" \
+        --argjson auto_scrape "$AUTO_SCRAPE" \
+        '{
+            type: $type,
+            title: $title,
+            payload: $payload,
+            context: (if $context == "" then null else $context end),
+            source_url: (if $source_url == "" then null else $source_url end),
+            notes: (if $notes == "" then null else $notes end),
+            tags: (if $tags == "" then null else $tags end),
+            auto_scrape: $auto_scrape
+        }')
+
+    HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$INGEST_URL" \
+        -H "Content-Type: application/json" \
+        -d "$JSON_DATA" 2>/dev/null || true)
+
+    HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+    HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
+
+    if [[ "$HTTP_STATUS" == "200" ]]; then
+        ITEM_ID=$(echo "$HTTP_BODY" | jq -r '.id')
+        echo "[OK] Preserved [$TYPE]: '$TITLE' (id: $ITEM_ID)"
+        exit 0
+    else
+        if [[ -z "$HTTP_STATUS" || "$HTTP_STATUS" == "000" ]]; then
+            echo "Error: Amber daemon is not running on $HOST:$PORT"
+            echo "Start it with: uvicorn backend.app:app --port $PORT"
+        else
+            echo "Error ($HTTP_STATUS): $HTTP_BODY"
+        fi
+        exit 1
+    fi
+fi
+
+# -----------------------------------------------------------------------------
+# Search Logic
+# -----------------------------------------------------------------------------
+QUERY=""
+ITEM_TYPE=""
+LIMIT=10
+COPY_FIRST=false
+OPEN_FIRST=false
+INTERACTIVE=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -t|--type)
+            ITEM_TYPE="$2"
+            shift 2
+            ;;
+        -l|--limit)
+            LIMIT="$2"
+            shift 2
+            ;;
+        -c|--copy)
+            COPY_FIRST=true
+            shift 1
+            ;;
+        -o|--open)
+            OPEN_FIRST=true
+            shift 1
+            ;;
+        -i|--interactive)
+            INTERACTIVE=true
+            shift 1
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            if [[ -z "$QUERY" ]]; then
+                QUERY="$1"
+            else
+                QUERY="$QUERY $1"
+            fi
+            shift 1
+            ;;
+    esac
+done
+
+if [[ -z "$QUERY" && "$INTERACTIVE" == false ]]; then
+    show_help
+fi
+
+# Interactive fzf mode
+if [[ "$INTERACTIVE" == true ]]; then
+    if ! command -v fzf &>/dev/null; then
+        echo "Error: fzf is not installed."
+        echo "Install it with: sudo apt install fzf"
+        exit 1
+    fi
+
+    if [[ -z "$QUERY" ]]; then
+        PARAMS="limit=150"
+        if [[ -n "$ITEM_TYPE" ]]; then
+            PARAMS="${PARAMS}&type=${ITEM_TYPE}"
+        fi
+        RAW_RESPONSE=$(curl -s "${ITEMS_URL}?${PARAMS}" 2>/dev/null || true)
+        ITEMS=$(echo "$RAW_RESPONSE" | jq -r '.items[]? | "\(.id)\t[\(.type)] \(.title)\t\(.payload)"')
+    else
+        ENCODED_QUERY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")
+        PARAMS="q=${ENCODED_QUERY}&limit=100"
+        if [[ -n "$ITEM_TYPE" ]]; then
+            PARAMS="${PARAMS}&type=${ITEM_TYPE}"
+        fi
+        RAW_RESPONSE=$(curl -s "${API_URL}?${PARAMS}" 2>/dev/null || true)
+        ITEMS=$(echo "$RAW_RESPONSE" | jq -r '.results[]? | "\(.id)\t[\(.type)] \(.title)\t\(.payload)"')
+    fi
+
+    if [[ -z "$ITEMS" ]]; then
+        echo "No items in memory found."
+        exit 0
+    fi
+
+    SELECTION=$(echo "$ITEMS" | fzf --delimiter="\t" --with-nth=2 \
+        --query="$QUERY" \
+        --preview="echo {} | cut -f1 | xargs -I@ curl -s 'http://${HOST}:${PORT}/api/items/@' | jq -r '\"Title: \" + .title + \"\nType: \" + .type + \"\nContext: \" + (.context // \"none\") + \"\nTags: \" + (.tags // \"none\") + \"\n\n--- PAYLOAD ---\n\" + .payload + \"\n\n--- NOTES ---\n\" + (.notes // \"\")'" \
+        --preview-window=right:55%:wrap \
+        --bind "ctrl-y:execute(echo {} | cut -f3 | wl-copy || echo {} | cut -f3 | xclip -selection clipboard)+abort" \
+        --header="Enter: Copy Payload | Ctrl-Y: Quick Copy | Esc: Cancel" || true)
+
+    if [[ -n "$SELECTION" ]]; then
+        SEL_ID=$(echo "$SELECTION" | cut -f1)
+        SEL_TITLE=$(echo "$SELECTION" | cut -f2)
+        SEL_PAYLOAD=$(echo "$SELECTION" | cut -f3)
+        copy_to_clipboard "$SEL_PAYLOAD"
+        touch_item "$SEL_ID"
+        echo "[COPIED] $SEL_TITLE"
+        echo "$SEL_PAYLOAD"
+    fi
+    exit 0
+fi
+
+# Standard Terminal Search
+ENCODED_QUERY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")
+PARAMS="q=${ENCODED_QUERY}&limit=${LIMIT}"
+if [[ -n "$ITEM_TYPE" ]]; then
+    PARAMS="${PARAMS}&type=${ITEM_TYPE}"
+fi
+
+RESPONSE=$(curl -s "${API_URL}?${PARAMS}" 2>/dev/null || true)
+
+if [[ -z "$RESPONSE" ]]; then
+    echo "Error: Amber daemon is not running on $HOST:$PORT"
+    echo "Start it with: uvicorn backend.app:app --port $PORT"
+    exit 1
+fi
+
+TOTAL_HITS=$(echo "$RESPONSE" | jq -r '.total_hits // 0')
+ELAPSED_MS=$(echo "$RESPONSE" | jq -r '.elapsed_ms // 0')
+
+if [[ "$TOTAL_HITS" -eq 0 ]]; then
+    echo "No results found for '$QUERY' (${ELAPSED_MS}ms)."
+    exit 0
+fi
+
+if [[ "$COPY_FIRST" == true ]]; then
+    TOP_ID=$(echo "$RESPONSE" | jq -r '.results[0].id')
+    TOP_PAYLOAD=$(echo "$RESPONSE" | jq -r '.results[0].payload')
+    TOP_TITLE=$(echo "$RESPONSE" | jq -r '.results[0].title')
+    copy_to_clipboard "$TOP_PAYLOAD"
+    touch_item "$TOP_ID"
+    echo "[COPIED TO CLIPBOARD] $TOP_TITLE"
+    echo "$TOP_PAYLOAD"
+    exit 0
+fi
+
+if [[ "$OPEN_FIRST" == true ]]; then
+    TOP_ID=$(echo "$RESPONSE" | jq -r '.results[0].id')
+    TOP_URL=$(echo "$RESPONSE" | jq -r '.results[0].source_url // .results[0].payload')
+    TOP_TITLE=$(echo "$RESPONSE" | jq -r '.results[0].title')
+    touch_item "$TOP_ID"
+    echo "[OPENING IN BROWSER] $TOP_TITLE -> $TOP_URL"
+    xdg-open "$TOP_URL" >/dev/null 2>&1 || sensible-browser "$TOP_URL" >/dev/null 2>&1 || true
+    exit 0
+fi
+
+# Output Formatting
+BOLD="\033[1m"
+GREEN="\033[32m"
+CYAN="\033[36m"
+YELLOW="\033[33m"
+DIM="\033[2m"
+RESET="\033[0m"
+
+echo -e "${BOLD}Results for:${RESET} '${QUERY}' ${DIM}(${TOTAL_HITS} hits in ${ELAPSED_MS}ms)${RESET}\n"
+
+INDEX=1
+echo "$RESPONSE" | jq -c '.results[]' | while read -r item; do
+    ID=$(echo "$item" | jq -r '.id')
+    TYPE=$(echo "$item" | jq -r '.type')
+    TITLE=$(echo "$item" | jq -r '.title')
+    PAYLOAD=$(echo "$item" | jq -r '.payload')
+    CONTEXT=$(echo "$item" | jq -r '.context // empty')
+    SOURCE_URL=$(echo "$item" | jq -r '.source_url // empty')
+    NOTES=$(echo "$item" | jq -r '.notes // empty')
+    TAGS=$(echo "$item" | jq -r '.tags // empty')
+    USE_COUNT=$(echo "$item" | jq -r '.use_count // 0')
+
+    echo -e "${BOLD}${CYAN}[${INDEX}] [${TYPE}] ${TITLE}${RESET} ${DIM}(used ${USE_COUNT}x)${RESET}"
+    echo -e "    ${GREEN}${PAYLOAD}${RESET}"
+    
+    if [[ -n "$NOTES" ]]; then
+        echo -e "    ${DIM}Notes: ${NOTES}${RESET}"
+    fi
+    if [[ -n "$CONTEXT" || -n "$TAGS" ]]; then
+        echo -e "    ${DIM}Context: ${CONTEXT:-none} | Tags: ${TAGS:-none}${RESET}"
+    fi
+    if [[ -n "$SOURCE_URL" ]]; then
+        echo -e "    ${DIM}URL: ${SOURCE_URL}${RESET}"
+    fi
+    echo ""
+    INDEX=$((INDEX + 1))
+done

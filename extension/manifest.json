@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "mygoogle - Personal Memory Capture",
+  "name": "Amber - Personal Memory Capture",
   "version": "0.1.0",
-  "description": "One-click capture for commands, articles, quotes, and AI chat sessions into your local mygoogle brain.",
+  "description": "One-click capture for commands, articles, quotes, and AI chat sessions into your local Amber memory vault.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -18,7 +18,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "mygoogle Capture"
+    "default_title": "Amber Capture"
   },
   "background": {
     "service_worker": "background.js"
@@ -29,7 +29,7 @@
         "default": "Alt+S",
         "mac": "Alt+S"
       },
-      "description": "Quickly save selected text or active page to mygoogle"
+      "description": "Quickly save selected text or active page to Amber"
     }
   }
 }

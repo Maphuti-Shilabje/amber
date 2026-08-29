@@ -80,17 +80,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       if (res.ok) {
-        statusDiv.textContent = "Saved to mygoogle!";
+        statusDiv.textContent = "Preserved in Amber!";
         statusDiv.style.color = "#3fb950";
         statusDiv.classList.remove("hidden");
         setTimeout(() => window.close(), 900);
       } else {
-        statusDiv.textContent = "Failed to save.";
+        statusDiv.textContent = "Failed to preserve.";
         statusDiv.style.color = "#f85149";
         statusDiv.classList.remove("hidden");
       }
     } catch (err) {
-      statusDiv.textContent = "mygoogle daemon offline.";
+      statusDiv.textContent = "Amber daemon offline.";
       statusDiv.style.color = "#f85149";
       statusDiv.classList.remove("hidden");
     }

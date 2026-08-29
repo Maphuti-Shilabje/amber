@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from contextlib import contextmanager
 from backend.config import DB_PATH, DB_CONNECT_TIMEOUT_SEC, DB_BUSY_TIMEOUT_MS
 
-logger = logging.getLogger("mygoogle.db")
+logger = logging.getLogger("amber.db")
 
 
 @contextmanager

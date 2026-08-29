@@ -1,18 +1,18 @@
-# mygoogle
+# Amber
 
-Personal local-first search engine, command hub, and memory cache.
+Personal local-first memory vault, command preservation, and knowledge retrieval hub.
 
 ## Overview
-mygoogle is designed to solve developer fragmentation, bookmark silos, and repetitive search overhead by replacing public search with a private, content-indexed local memory.
+Amber captures and preserves commands, code snippets, web highlights, and notes exactly as they were, without degradation. It replaces public search noise with a content-indexed, instant-retrieval local engine.
 
 - Hybrid Search: Combines SQLite FTS5 (BM25 keyword matching) and FastEmbed (dense ONNX vector embeddings) using Reciprocal Rank Fusion (RRF).
 - Zero Admin Overhead: Ingests commands, web clips, and notes with one click or command without manual tagging or folder hierarchies.
-- Dual Interfaces: Seamless CLI search (`mysearch`, `mysave`) and Web Omnibox UI (`http://127.0.0.1:7474`).
-- Ambient Capture: Manifest V3 browser extension with instant keyboard shortcut (`Alt+S`) and context menu capture.
+- Dual Interfaces: Seamless unified CLI (`amber`) and Web Omnibox UI (`http://127.0.0.1:7474`).
+- Ambient Capture: Manifest V3 browser extension with instant keyboard shortcut (`Alt+S`) and in-page toast feedback.
 
 ## Directory Structure
 - backend/: FastAPI daemon, SQLite database, FTS5 triggers, vector indexing, and web scraper.
-- cli/: Terminal search and capture scripts (`mysearch`, `mysave`).
+- cli/: Unified terminal client (`cli/amber`).
 - web/: Minimalist omnibox frontend served directly by the backend daemon.
 - extension/: Manifest V3 browser extension for Chrome, Brave, Edge, and Firefox.
 - tests/: Integration test suite.
@@ -37,34 +37,37 @@ uv pip install -e .
 To run continuously via systemd:
 ```bash
 mkdir -p ~/.config/systemd/user
-cp mygoogle.service ~/.config/systemd/user/
+cp amber.service ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now mygoogle
+systemctl --user enable --now amber
 ```
 
 ### 3. CLI Usage
 
-Add `cli/` to your PATH or create aliases in `~/.bashrc` / `~/.zshrc`:
+Add `cli/` to your PATH or create an alias in `~/.bashrc` / `~/.zshrc`:
 ```bash
-alias ?="/path/to/mygoogle/cli/mysearch"
-alias save="/path/to/mygoogle/cli/mysave"
+alias amber="/path/to/project/cli/amber"
+alias ?="amber"
 ```
 
 Examples:
 ```bash
-# Ingest commands or links
-save -c "python3 -m venv .venv && source .venv/bin/activate" -t "Create Python venv" -g "python,venv"
-save -u "https://onyxcoffeelab.com" -t "Onyx Coffee Lab" -n "Specialty Ethiopian beans"
+# Ingest commands, URLs, or notes
+amber save -c "python3 -m venv .venv && source .venv/bin/activate" -t "Create Python venv" -g "python,venv"
+amber save -u "https://onyxcoffeelab.com" -t "Onyx Coffee Lab" -n "Specialty Ethiopian blueberry beans"
 
 # Search in terminal
-? "venv"
-? "blueberry coffee"
+amber "venv"
+amber "blueberry coffee"
 
 # Copy top result directly to clipboard
-? -c "venv"
+amber -c "venv"
 
 # Open top URL directly in browser
-? -o "coffee"
+amber -o "coffee"
+
+# Interactive fzf mode with live split preview
+amber -i
 ```
 
 ### 4. Web Omnibox Setup
@@ -75,15 +78,15 @@ Open `http://127.0.0.1:7474` in your browser.
 - Press `Enter` to copy a command or open a link.
 - Click `+ Ingest` to save anything directly from the browser.
 
-To use mygoogle from your browser address bar:
+To use Amber from your browser address bar:
 1. Go to Browser Settings -> Search Engines -> Manage Search Engines.
 2. Add a new search engine:
-   - Name: mygoogle
-   - Shortcut: `m` or `@me`
+   - Name: Amber
+   - Shortcut: `a` or `@amber`
    - URL: `http://127.0.0.1:7474/?q=%s`
 
 ### 5. Browser Extension Setup
 1. Open your browser extension manager (`chrome://extensions` or `edge://extensions`).
 2. Enable "Developer mode".
 3. Click "Load unpacked" and select the `extension/` folder in this repository.
-4. Use `Alt+S` on any webpage to instantly save the page or highlighted quote.
+4. Use `Alt+S` on any webpage to instantly save the page or highlighted quote with in-page feedback.

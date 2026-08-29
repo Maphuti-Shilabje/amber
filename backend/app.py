@@ -33,7 +33,7 @@ from backend.search import hybrid_search, embed_text
 from backend.scraper import extract_url_content
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("mygoogle.app")
+logger = logging.getLogger("amber.app")
 
 
 @asynccontextmanager
@@ -45,8 +45,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="mygoogle",
-    description="Personal local-first search engine and memory hub",
+    title="Amber",
+    description="Personal local-first memory and command preservation hub",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -223,5 +223,5 @@ if STATIC_DIR.exists():
         index_file = STATIC_DIR / "index.html"
         if index_file.exists():
             return FileResponse(str(index_file))
-        return {"status": "ok", "message": "mygoogle daemon running. Web UI not found in static dir."}
+        return {"status": "ok", "message": "Amber daemon running. Web UI not found in static dir."}
 

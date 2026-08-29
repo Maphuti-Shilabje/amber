@@ -1,5 +1,5 @@
 [Unit]
-Description=mygoogle Personal Memory Daemon
+Description=Amber Personal Memory Daemon
 After=network.target
 
 [Service]

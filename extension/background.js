@@ -1,4 +1,4 @@
-// mygoogle - Background Service Worker
+// Amber - Background Service Worker
 
 const API_BASE = "http://127.0.0.1:7474";
 
@@ -41,10 +41,10 @@ function showToastInTab(tabId, message, color = "#238636") {
   chrome.scripting.executeScript({
     target: { tabId: tabId },
     func: (msg, borderColor) => {
-      let toast = document.getElementById("mygoogle-inpage-toast");
+      let toast = document.getElementById("amber-inpage-toast");
       if (!toast) {
         toast = document.createElement("div");
-        toast.id = "mygoogle-inpage-toast";
+        toast.id = "amber-inpage-toast";
         toast.style.cssText = `
           position: fixed;
           top: 24px;
@@ -86,13 +86,13 @@ function showToastInTab(tabId, message, color = "#238636") {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "save-selection",
-    title: "Clip selection to mygoogle",
+    title: "Preserve selection in Amber",
     contexts: ["selection"]
   });
 
   chrome.contextMenus.create({
     id: "save-page",
-    title: "Save page bookmark to mygoogle",
+    title: "Preserve page bookmark in Amber",
     contexts: ["page"]
   });
 });
@@ -100,22 +100,22 @@ chrome.runtime.onInstalled.addListener(() => {
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "save-selection" && info.selectionText) {
-    await saveToMyGoogle({
+    await saveToAmber({
       type: "highlight",
       title: tab && tab.title ? `Quote from ${tab.title}` : "Saved Quote",
       payload: info.selectionText.trim(),
       source_url: tab && tab.url ? tab.url : null,
       auto_scrape: false
-    }, "CLIP", tab ? tab.id : null, "Quote saved to mygoogle");
+    }, "CLIP", tab ? tab.id : null, "Quote preserved in Amber");
   } else if (info.menuItemId === "save-page" && tab) {
     const restricted = isRestrictedUrl(tab.url);
-    await saveToMyGoogle({
+    await saveToAmber({
       type: "bookmark",
       title: tab.title || tab.url,
       payload: tab.url,
       source_url: tab.url,
       auto_scrape: !restricted
-    }, "BOOK", tab.id, "Bookmark saved to mygoogle");
+    }, "BOOK", tab.id, "Bookmark preserved in Amber");
   }
 });
 
@@ -143,27 +143,27 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
 
     if (selectedText) {
-      await saveToMyGoogle({
+      await saveToAmber({
         type: "highlight",
         title: tab.title ? `Quote from ${tab.title}` : "Saved Quote",
         payload: selectedText,
         source_url: tab.url,
         auto_scrape: false
-      }, "CLIP", tab.id, "Quote clipped to mygoogle");
+      }, "CLIP", tab.id, "Quote preserved in Amber");
     } else if (tab.url) {
-      await saveToMyGoogle({
+      await saveToAmber({
         type: "bookmark",
         title: tab.title || tab.url,
         payload: tab.url,
         source_url: tab.url,
         auto_scrape: !restricted
-      }, "BOOK", tab.id, "Bookmark saved to mygoogle");
+      }, "BOOK", tab.id, "Bookmark preserved in Amber");
     }
   }
 });
 
 // Save to local daemon with badge feedback and in-page toast
-async function saveToMyGoogle(data, badgeText = "OK", tabId = null, toastMessage = "Saved to mygoogle") {
+async function saveToAmber(data, badgeText = "OK", tabId = null, toastMessage = "Preserved in Amber") {
   try {
     const res = await fetch(`${API_BASE}/api/ingest`, {
       method: "POST",
@@ -180,14 +180,14 @@ async function saveToMyGoogle(data, badgeText = "OK", tabId = null, toastMessage
     } else {
       flashBadge("ERR", "#d73a49");
       if (tabId) {
-        showToastInTab(tabId, "Failed to save to mygoogle", "#d73a49");
+        showToastInTab(tabId, "Failed to preserve in Amber", "#d73a49");
       }
     }
   } catch (err) {
-    console.error("Failed to connect to mygoogle daemon:", err);
+    console.error("Failed to connect to Amber daemon:", err);
     flashBadge("OFF", "#8b949e");
     if (tabId) {
-      showToastInTab(tabId, "mygoogle daemon offline", "#8b949e");
+      showToastInTab(tabId, "Amber daemon offline", "#8b949e");
     }
   }
 }

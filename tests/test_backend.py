@@ -4,7 +4,7 @@ import pytest
 
 # Use a temporary database for tests
 temp_db = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
-os.environ["MYGOOGLE_DB_PATH"] = temp_db.name
+os.environ["AMBER_DB_PATH"] = temp_db.name
 
 from backend.db import init_db, upsert_item, get_item, touch_item, delete_item, list_items, save_embedding
 from backend.search import search_fts, hybrid_search, embed_text

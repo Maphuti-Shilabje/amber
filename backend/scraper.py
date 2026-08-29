@@ -2,7 +2,7 @@ import logging
 from typing import Optional, Dict, Any
 import trafilatura
 
-logger = logging.getLogger("mygoogle.scraper")
+logger = logging.getLogger("amber.scraper")
 
 
 def extract_url_content(url: str) -> Optional[Dict[str, Any]]:

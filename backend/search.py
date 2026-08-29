@@ -26,7 +26,7 @@ from backend.config import (
 )
 from backend.db import get_db, get_all_embeddings, get_item
 
-logger = logging.getLogger("mygoogle.search")
+logger = logging.getLogger("amber.search")
 
 _embedding_model: Optional[TextEmbedding] = None
 

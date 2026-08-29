@@ -1,7 +1,7 @@
 [project]
-name = "mygoogle"
+name = "amber"
 version = "0.1.0"
-description = "Personal developer search engine and memory hub"
+description = "Personal memory, command preservation, and knowledge retrieval hub"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
