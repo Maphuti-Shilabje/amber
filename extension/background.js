@@ -20,7 +20,22 @@ function isRestrictedUrl(url) {
   return false;
 }
 
-// Setup context menus
+// Function injected into tab to extract text selection across DOM and inputs
+function extractSelectionFromPage() {
+  let text = "";
+  if (window.getSelection) {
+    text = window.getSelection().toString();
+  }
+  if (!text && document.activeElement) {
+    const el = document.activeElement;
+    if (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type === "text")) {
+      text = el.value.substring(el.selectionStart, el.selectionEnd);
+    }
+  }
+  return text ? text.trim() : "";
+}
+
+// Setup context menus on install
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "save-selection",
@@ -40,11 +55,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "save-selection" && info.selectionText) {
     await saveToMyGoogle({
       type: "highlight",
-      title: (tab && tab.title) ? `Quote from ${tab.title}` : "Saved Quote",
-      payload: info.selectionText,
-      source_url: (tab && tab.url) ? tab.url : null,
+      title: tab && tab.title ? `Quote from ${tab.title}` : "Saved Quote",
+      payload: info.selectionText.trim(),
+      source_url: tab && tab.url ? tab.url : null,
       auto_scrape: false
-    });
+    }, "CLIP");
   } else if (info.menuItemId === "save-page" && tab) {
     const restricted = isRestrictedUrl(tab.url);
     await saveToMyGoogle({
@@ -53,7 +68,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       payload: tab.url,
       source_url: tab.url,
       auto_scrape: !restricted
-    });
+    }, "BOOK");
   }
 });
 
@@ -70,11 +85,13 @@ chrome.commands.onCommand.addListener(async (command) => {
       try {
         const results = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          func: () => window.getSelection().toString()
+          func: extractSelectionFromPage
         });
-        selectedText = results && results[0] && results[0].result ? results[0].result.trim() : "";
+        if (results && results[0] && results[0].result) {
+          selectedText = results[0].result.trim();
+        }
       } catch (err) {
-        // Silently ignore script injection restrictions on protected frames
+        console.warn("Could not extract selection from tab:", err);
       }
     }
 
@@ -85,7 +102,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         payload: selectedText,
         source_url: tab.url,
         auto_scrape: false
-      });
+      }, "CLIP");
     } else if (tab.url) {
       await saveToMyGoogle({
         type: "bookmark",
@@ -93,13 +110,13 @@ chrome.commands.onCommand.addListener(async (command) => {
         payload: tab.url,
         source_url: tab.url,
         auto_scrape: !restricted
-      });
+      }, "BOOK");
     }
   }
 });
 
-// Save to local daemon
-async function saveToMyGoogle(data) {
+// Save to local daemon with badge feedback
+async function saveToMyGoogle(data, badgeText = "OK") {
   try {
     const res = await fetch(`${API_BASE}/api/ingest`, {
       method: "POST",
@@ -108,7 +125,8 @@ async function saveToMyGoogle(data) {
     });
 
     if (res.ok) {
-      flashBadge("OK", "#238636");
+      const color = badgeText === "CLIP" ? "#d29922" : "#238636";
+      flashBadge(badgeText, color);
     } else {
       flashBadge("ERR", "#d73a49");
     }
@@ -125,5 +143,5 @@ function flashBadge(text, color) {
 
   setTimeout(() => {
     chrome.action.setBadgeText({ text: "" });
-  }, 2000);
+  }, 2200);
 }

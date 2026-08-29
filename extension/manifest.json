@@ -12,7 +12,9 @@
   ],
   "host_permissions": [
     "http://127.0.0.1:7474/*",
-    "http://localhost:7474/*"
+    "http://localhost:7474/*",
+    "http://*/*",
+    "https://*/*"
   ],
   "action": {
     "default_popup": "popup.html",

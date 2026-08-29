@@ -81,9 +81,10 @@ def search_fts(query: str, limit: int = 40) -> List[Tuple[str, float, str]]:
     return results
 
 
-def search_vectors(query_vec: np.ndarray, limit: int = 40) -> List[Tuple[str, float]]:
+def search_vectors(query_vec: np.ndarray, min_similarity: float = 0.62, limit: int = 40) -> List[Tuple[str, float]]:
     """
     Computes cosine similarity between query vector and all stored embeddings in SQLite.
+    Filters out results below the confidence threshold.
     Returns: list of (item_id, cosine_similarity_score)
     """
     stored_embeddings = get_all_embeddings(EMBEDDING_MODEL)
@@ -107,8 +108,8 @@ def search_vectors(query_vec: np.ndarray, limit: int = 40) -> List[Tuple[str, fl
 
     # Sort descending
     top_indices = np.argsort(scores)[::-1][:limit]
-    # Filter out weak cosine scores (< 0.30)
-    results = [(item_ids[idx], float(scores[idx])) for idx in top_indices if scores[idx] >= 0.30]
+    # Filter out weak cosine scores
+    results = [(item_ids[idx], float(scores[idx])) for idx in top_indices if scores[idx] >= min_similarity]
     return results
 
 
@@ -129,10 +130,10 @@ def hybrid_search(
     # 1. BM25 Search
     fts_results = search_fts(cleaned_query, limit=50)
     
-    # 2. Vector Search
+    # 2. Vector Search (confidence threshold of 0.62 to prevent false positive noise)
     try:
         query_vec = embed_text(cleaned_query)
-        vector_results = search_vectors(query_vec, limit=50)
+        vector_results = search_vectors(query_vec, min_similarity=0.62, limit=50)
     except Exception as e:
         logger.error(f"Vector search failed: {e}")
         vector_results = []
@@ -147,9 +148,10 @@ def hybrid_search(
         if snippet:
             snippets[item_id] = snippet
 
-    # Vector RRF component
+    # Vector RRF component (weighted by similarity score squared to penalize marginal matches)
     for rank, (item_id, cos_score) in enumerate(vector_results, start=1):
-        rrf_scores[item_id] = rrf_scores.get(item_id, 0.0) + (1.0 / (k + rank))
+        weight = float(cos_score) ** 2
+        rrf_scores[item_id] = rrf_scores.get(item_id, 0.0) + (weight / (k + rank))
 
     if not rrf_scores:
         return []

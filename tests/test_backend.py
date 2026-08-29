@@ -90,3 +90,13 @@ def test_touch_and_delete():
 
     assert delete_item("test-1") is True
     assert get_item("test-1") is None
+
+
+def test_non_matching_query_returns_empty():
+    # Searching for non-existent unrelated terms must return 0 results
+    results = hybrid_search("quantum astronaut telescope moon")
+    assert len(results) == 0
+
+    results_oov = hybrid_search("xyzabc123nonexistent")
+    assert len(results_oov) == 0
+
