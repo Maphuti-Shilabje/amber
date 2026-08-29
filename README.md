@@ -154,15 +154,7 @@ Launch Amber as a floating Spotlight search bar from anywhere on your desktop:
    * **Shortcut:** Press **`Super+A`** (or **`Alt+Space`**).
 3. Whenever you hit the shortcut, a floating search bar appears, copies on `Enter`, and dismisses automatically.
 
-### 2. Ulauncher Extension (Linux)
-Link the Amber extension into Ulauncher:
-```bash
-mkdir -p ~/.local/share/ulauncher/extensions
-ln -s /path/to/amber/integrations/ulauncher ~/.local/share/ulauncher/extensions/ulauncher-amber
-```
-Restart Ulauncher. Type `a <query>` to search Amber.
-
-### 3. Raycast Extension (macOS)
+### 2. Raycast Extension (macOS)
 ```bash
 cd integrations/raycast
 npm install
