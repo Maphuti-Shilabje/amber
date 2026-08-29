@@ -16,7 +16,7 @@ amber - Personal memory, command preservation & retrieval tool
 
 Usage:
   amber <query>                 Search preserved memory
-  amber -i [query]              Interactive fzf mode with live preview
+  amber -i [query]              Interactive fzf mode with live backend search
   amber -c <query>              Search & copy top matching payload to clipboard
   amber -o <query>              Search & open top matching URL in browser
   amber save [options]          Preserve a command, bookmark, or note
@@ -26,7 +26,7 @@ Search Options:
   -l, --limit <num>             Limit results (default: 10)
   -c, --copy                    Copy top result payload directly to clipboard
   -o, --open                    Open top result in browser
-  -i, --interactive             Interactive fzf mode with side-by-side preview
+  -i, --interactive             Interactive fzf mode with live preview
   -h, --help                    Show this help message
 
 Save Options (amber save ...):
@@ -262,7 +262,9 @@ if [[ -z "$QUERY" && "$INTERACTIVE" == false ]]; then
     show_help
 fi
 
-# Interactive fzf mode
+# -----------------------------------------------------------------------------
+# Interactive fzf mode (Live Backend Search Engine)
+# -----------------------------------------------------------------------------
 if [[ "$INTERACTIVE" == true ]]; then
     if ! command -v fzf &>/dev/null; then
         echo "Error: fzf is not installed."
@@ -270,39 +272,29 @@ if [[ "$INTERACTIVE" == true ]]; then
         exit 1
     fi
 
-    if [[ -z "$QUERY" ]]; then
-        PARAMS="limit=150"
-        if [[ -n "$ITEM_TYPE" ]]; then
-            PARAMS="${PARAMS}&type=${ITEM_TYPE}"
-        fi
-        RAW_RESPONSE=$(curl -s "${ITEMS_URL}?${PARAMS}" 2>/dev/null || true)
-        ITEMS=$(echo "$RAW_RESPONSE" | jq -r '.items[]? | "\(.id)\t[\(.type)] \(.title)\t\(.payload)"')
-    else
-        ENCODED_QUERY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")
-        PARAMS="q=${ENCODED_QUERY}&limit=100"
-        if [[ -n "$ITEM_TYPE" ]]; then
-            PARAMS="${PARAMS}&type=${ITEM_TYPE}"
-        fi
-        RAW_RESPONSE=$(curl -s "${API_URL}?${PARAMS}" 2>/dev/null || true)
-        ITEMS=$(echo "$RAW_RESPONSE" | jq -r '.results[]? | "\(.id)\t[\(.type)] \(.title)\t\(.payload)"')
-    fi
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    BACKEND_HELPER="${SCRIPT_DIR}/_fzf_backend.py"
 
-    if [[ -z "$ITEMS" ]]; then
-        echo "No items in memory found."
-        exit 0
-    fi
+    export AMBER_HOST="$HOST"
+    export AMBER_PORT="$PORT"
 
-    SELECTION=$(echo "$ITEMS" | fzf --delimiter="\t" --with-nth=2 \
+    INITIAL_LIST=$("${BACKEND_HELPER}" "$QUERY" "$ITEM_TYPE")
+
+    SELECTION=$(echo "$INITIAL_LIST" | fzf \
         --query="$QUERY" \
-        --preview="echo {} | cut -f1 | xargs -I@ curl -s 'http://${HOST}:${PORT}/api/items/@' | jq -r '\"Title: \" + .title + \"\nType: \" + .type + \"\nContext: \" + (.context // \"none\") + \"\nTags: \" + (.tags // \"none\") + \"\n\n--- PAYLOAD ---\n\" + .payload + \"\n\n--- NOTES ---\n\" + (.notes // \"\")'" \
+        --disabled \
+        --bind "change:reload(\"${BACKEND_HELPER}\" {q} \"$ITEM_TYPE\")" \
+        --delimiter="\t" \
+        --with-nth=1,2 \
+        --preview="echo {} | cut -f4 | xargs -I@ curl -s 'http://${HOST}:${PORT}/api/items/@' | jq -r '\"Title: \" + .title + \"\nType: \" + .type + \"\nContext: \" + (.context // \"none\") + \"\nTags: \" + (.tags // \"none\") + \"\n\n--- PAYLOAD ---\n\" + .payload + \"\n\n--- NOTES ---\n\" + (.notes // \"\")'" \
         --preview-window=right:55%:wrap \
-        --bind "ctrl-y:execute(echo {} | cut -f3 | wl-copy || echo {} | cut -f3 | xclip -selection clipboard)+abort" \
+        --bind "ctrl-y:execute(echo {} | cut -f5 | wl-copy || echo {} | cut -f5 | xclip -selection clipboard)+abort" \
         --header="Enter: Copy Payload | Ctrl-Y: Quick Copy | Esc: Cancel" || true)
 
     if [[ -n "$SELECTION" ]]; then
-        SEL_ID=$(echo "$SELECTION" | cut -f1)
-        SEL_TITLE=$(echo "$SELECTION" | cut -f2)
-        SEL_PAYLOAD=$(echo "$SELECTION" | cut -f3)
+        SEL_TITLE=$(echo "$SELECTION" | cut -f1)
+        SEL_ID=$(echo "$SELECTION" | cut -f4)
+        SEL_PAYLOAD=$(echo "$SELECTION" | cut -f5)
         copy_to_clipboard "$SEL_PAYLOAD"
         touch_item "$SEL_ID"
         echo "[COPIED] $SEL_TITLE"
@@ -311,7 +303,9 @@ if [[ "$INTERACTIVE" == true ]]; then
     exit 0
 fi
 
+# -----------------------------------------------------------------------------
 # Standard Terminal Search
+# -----------------------------------------------------------------------------
 ENCODED_QUERY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")
 PARAMS="q=${ENCODED_QUERY}&limit=${LIMIT}"
 if [[ -n "$ITEM_TYPE" ]]; then
