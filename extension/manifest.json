@@ -43,5 +43,11 @@
       },
       "description": "Quickly save selected text or active page to Amber"
     }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "amber@fretak.com",
+      "strict_min_version": "109.0"
+    }
   }
 }
