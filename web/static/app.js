@@ -282,11 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             let payloadHtml = "";
             if (item.payload) {
-                payloadHtml = `
-                    <div class="payload-box ${isHighlight ? "payload-highlight" : ""}">
-                        ${escapeHtml(item.payload)}
-                    </div>
-                `;
+                payloadHtml = `<div class="payload-box ${isHighlight ? "payload-highlight" : ""}">${escapeHtml(item.payload.trim())}</div>`;
             }
 
             card.innerHTML = `
