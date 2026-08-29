@@ -1,5 +1,5 @@
 {
-  "manifest_version": "2",
+  "required_api_version": "2",
   "name": "Amber",
   "description": "Search and retrieve preserved commands, bookmarks, and notes from your local Amber memory vault",
   "developer_name": "Maphuti Shilabje",
