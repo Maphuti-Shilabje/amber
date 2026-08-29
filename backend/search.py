@@ -5,7 +5,25 @@ from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 from fastembed import TextEmbedding
 
-from backend.config import EMBEDDING_MODEL
+from backend.config import (
+    EMBEDDING_MODEL,
+    MIN_VECTOR_SIMILARITY,
+    RRF_K,
+    VECTOR_SCORE_EXPONENT,
+    EXACT_MATCH_BONUS,
+    SUBSTRING_MATCH_BONUS,
+    USAGE_BOOST_MULTIPLIER,
+    BM25_WEIGHT_TITLE,
+    BM25_WEIGHT_PAYLOAD,
+    BM25_WEIGHT_TAGS,
+    BM25_WEIGHT_NOTES,
+    BM25_WEIGHT_RAW,
+    FTS_CANDIDATE_LIMIT,
+    VECTOR_CANDIDATE_LIMIT,
+    FTS_SNIPPET_WORDS_TITLE,
+    FTS_SNIPPET_WORDS_PAYLOAD,
+    DEFAULT_SEARCH_LIMIT,
+)
 from backend.db import get_db, get_all_embeddings, get_item
 
 logger = logging.getLogger("mygoogle.search")
@@ -45,9 +63,12 @@ def sanitize_fts_query(query: str) -> str:
     return " ".join(fts_tokens)
 
 
-def search_fts(query: str, limit: int = 40) -> List[Tuple[str, float, str]]:
+def search_fts(
+    query: str,
+    limit: int = FTS_CANDIDATE_LIMIT
+) -> List[Tuple[str, float, str]]:
     """
-    Executes BM25 search over SQLite FTS5 table.
+    Executes BM25 search over SQLite FTS5 table with configurable weights.
     Returns: list of (item_id, bm25_rank, highlight_snippet)
     """
     fts_query = sanitize_fts_query(query)
@@ -58,14 +79,12 @@ def search_fts(query: str, limit: int = 40) -> List[Tuple[str, float, str]]:
     with get_db() as conn:
         cursor = conn.cursor()
         try:
-            # bm25(items_fts, 5.0, 10.0, 3.0, 2.0, 1.0) weights:
-            # title=5.0, payload=10.0, tags=3.0, notes=2.0, raw_content=1.0
-            cursor.execute("""
+            cursor.execute(f"""
             SELECT 
                 id,
-                bm25(items_fts, 5.0, 10.0, 3.0, 2.0, 1.0) as rank,
-                snippet(items_fts, 1, '<mark>', '</mark>', '...', 16) as title_snippet,
-                snippet(items_fts, 2, '<mark>', '</mark>', '...', 24) as payload_snippet
+                bm25(items_fts, {BM25_WEIGHT_TITLE}, {BM25_WEIGHT_PAYLOAD}, {BM25_WEIGHT_TAGS}, {BM25_WEIGHT_NOTES}, {BM25_WEIGHT_RAW}) as rank,
+                snippet(items_fts, 1, '<mark>', '</mark>', '...', {FTS_SNIPPET_WORDS_TITLE}) as title_snippet,
+                snippet(items_fts, 2, '<mark>', '</mark>', '...', {FTS_SNIPPET_WORDS_PAYLOAD}) as payload_snippet
             FROM items_fts
             WHERE items_fts MATCH ?
             ORDER BY rank
@@ -81,7 +100,11 @@ def search_fts(query: str, limit: int = 40) -> List[Tuple[str, float, str]]:
     return results
 
 
-def search_vectors(query_vec: np.ndarray, min_similarity: float = 0.62, limit: int = 40) -> List[Tuple[str, float]]:
+def search_vectors(
+    query_vec: np.ndarray,
+    min_similarity: float = MIN_VECTOR_SIMILARITY,
+    limit: int = VECTOR_CANDIDATE_LIMIT
+) -> List[Tuple[str, float]]:
     """
     Computes cosine similarity between query vector and all stored embeddings in SQLite.
     Filters out results below the confidence threshold.
@@ -116,8 +139,8 @@ def search_vectors(query_vec: np.ndarray, min_similarity: float = 0.62, limit: i
 def hybrid_search(
     query: str,
     item_type: Optional[str] = None,
-    limit: int = 20,
-    k: int = 60
+    limit: int = DEFAULT_SEARCH_LIMIT,
+    k: int = RRF_K
 ) -> List[Dict[str, Any]]:
     """
     Performs hybrid search combining BM25 keyword matching and vector semantic similarity
@@ -128,12 +151,12 @@ def hybrid_search(
         return []
 
     # 1. BM25 Search
-    fts_results = search_fts(cleaned_query, limit=50)
+    fts_results = search_fts(cleaned_query, limit=FTS_CANDIDATE_LIMIT)
     
-    # 2. Vector Search (confidence threshold of 0.62 to prevent false positive noise)
+    # 2. Vector Search (confidence threshold to prevent false positive noise)
     try:
         query_vec = embed_text(cleaned_query)
-        vector_results = search_vectors(query_vec, min_similarity=0.62, limit=50)
+        vector_results = search_vectors(query_vec, min_similarity=MIN_VECTOR_SIMILARITY, limit=VECTOR_CANDIDATE_LIMIT)
     except Exception as e:
         logger.error(f"Vector search failed: {e}")
         vector_results = []
@@ -148,9 +171,9 @@ def hybrid_search(
         if snippet:
             snippets[item_id] = snippet
 
-    # Vector RRF component (weighted by similarity score squared to penalize marginal matches)
+    # Vector RRF component (weighted by similarity score with configurable exponent)
     for rank, (item_id, cos_score) in enumerate(vector_results, start=1):
-        weight = float(cos_score) ** 2
+        weight = float(cos_score) ** VECTOR_SCORE_EXPONENT
         rrf_scores[item_id] = rrf_scores.get(item_id, 0.0) + (weight / (k + rank))
 
     if not rrf_scores:
@@ -170,18 +193,18 @@ def hybrid_search(
 
         score = base_score
 
-        # Exact match bonus
+        # Exact and substring match bonuses
         title_lower = (item["title"] or "").lower()
         payload_lower = (item["payload"] or "").lower()
         if q_lower in title_lower or q_lower in payload_lower:
-            score += 0.04
+            score += SUBSTRING_MATCH_BONUS
         if title_lower == q_lower or payload_lower == q_lower:
-            score += 0.08
+            score += EXACT_MATCH_BONUS
 
-        # Usage frequency bonus: + 0.015 * log(1 + use_count)
+        # Usage frequency bonus: score += USAGE_BOOST * ln(1 + use_count)
         use_count = item.get("use_count", 0) or 0
         if use_count > 0:
-            score += 0.015 * math.log(1 + use_count)
+            score += USAGE_BOOST_MULTIPLIER * math.log(1 + use_count)
 
         item_dict = dict(item)
         item_dict["score"] = round(score, 5)

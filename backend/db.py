@@ -4,19 +4,19 @@ import json
 import logging
 from typing import Optional, List, Dict, Any, Tuple
 from contextlib import contextmanager
-from backend.config import DB_PATH
+from backend.config import DB_PATH, DB_CONNECT_TIMEOUT_SEC, DB_BUSY_TIMEOUT_MS
 
 logger = logging.getLogger("mygoogle.db")
 
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(str(DB_PATH), timeout=10.0)
+    conn = sqlite3.connect(str(DB_PATH), timeout=DB_CONNECT_TIMEOUT_SEC)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
     conn.execute("PRAGMA foreign_keys=ON;")
-    conn.execute("PRAGMA busy_timeout=5000;")
+    conn.execute(f"PRAGMA busy_timeout={DB_BUSY_TIMEOUT_MS};")
     try:
         yield conn
         conn.commit()

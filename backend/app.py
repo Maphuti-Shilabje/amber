@@ -10,7 +10,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from backend.config import STATIC_DIR, EMBEDDING_MODEL
+from backend.config import (
+    STATIC_DIR,
+    EMBEDDING_MODEL,
+    EMBED_TEXT_TRUNCATE_CHARS,
+    DEFAULT_SEARCH_LIMIT,
+    MAX_SEARCH_LIMIT,
+    DEFAULT_ITEMS_LIMIT,
+    MAX_ITEMS_LIMIT,
+)
 from backend.db import (
     init_db,
     upsert_item,
@@ -90,7 +98,7 @@ def process_and_index_item(item_id: str, payload_text: str, auto_scrape: bool, s
         if item:
             embed_source = f"{item['title']}\n{item['payload']}\n{item.get('notes') or ''}\n{item.get('tags') or ''}"
             if raw_text:
-                embed_source += f"\n{raw_text[:2000]}"
+                embed_source += f"\n{raw_text[:EMBED_TEXT_TRUNCATE_CHARS]}"
             vec = embed_text(embed_source)
             save_embedding(item_id, EMBEDDING_MODEL, vec.tobytes())
             logger.info(f"Vector embedding saved for item {item_id}")
@@ -130,7 +138,7 @@ async def ingest_item(req: IngestRequest, background_tasks: BackgroundTasks):
 async def search_items(
     q: str = Query(..., min_length=1, description="Search query string"),
     type: Optional[str] = Query(None, description="Filter by item type"),
-    limit: int = Query(20, ge=1, le=100)
+    limit: int = Query(DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT)
 ):
     start = time.time()
     results = hybrid_search(query=q, item_type=type, limit=limit)
@@ -146,7 +154,7 @@ async def search_items(
 
 @app.get("/api/items")
 async def get_items(
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(DEFAULT_ITEMS_LIMIT, ge=1, le=MAX_ITEMS_LIMIT),
     offset: int = Query(0, ge=0),
     type: Optional[str] = Query(None)
 ):
