@@ -34,6 +34,9 @@ EMBEDDING_MODEL = os.environ.get("AMBER_EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 EMBEDDING_DIM = int(os.environ.get("AMBER_EMBED_DIM", "384"))
 EMBED_TEXT_TRUNCATE_CHARS = int(os.environ.get("AMBER_EMBED_TRUNCATE_CHARS", "2000"))
 
+# Idle memory management: seconds before unloading model from RAM (300=5m, 0=immediate, -1=never)
+MODEL_IDLE_TIMEOUT_SEC = int(os.environ.get("AMBER_MODEL_IDLE_TIMEOUT_SEC", "300"))
+
 # -----------------------------------------------------------------------------
 # Hybrid Search and Ranking Hyperparameters
 # -----------------------------------------------------------------------------

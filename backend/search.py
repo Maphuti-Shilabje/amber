@@ -1,12 +1,16 @@
 import logging
 import math
 import re
+import time
+import threading
+import gc
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 from fastembed import TextEmbedding
 
 from backend.config import (
     EMBEDDING_MODEL,
+    MODEL_IDLE_TIMEOUT_SEC,
     MIN_VECTOR_SIMILARITY,
     RRF_K,
     VECTOR_SCORE_EXPONENT,
@@ -29,6 +33,31 @@ from backend.db import get_db, get_all_embeddings, get_item
 logger = logging.getLogger("amber.search")
 
 _embedding_model: Optional[TextEmbedding] = None
+_model_lock = threading.Lock()
+_last_used_timestamp: float = 0.0
+_cleaner_thread_started: bool = False
+
+
+def _schedule_idle_cleanup():
+    global _cleaner_thread_started
+    if _cleaner_thread_started or MODEL_IDLE_TIMEOUT_SEC <= 0:
+        return
+    _cleaner_thread_started = True
+
+    def _idle_worker():
+        global _embedding_model
+        while True:
+            time.sleep(15)
+            with _model_lock:
+                if _embedding_model is not None:
+                    idle_sec = time.time() - _last_used_timestamp
+                    if idle_sec >= MODEL_IDLE_TIMEOUT_SEC:
+                        logger.info(f"Unloading idle embedding model from RAM (idle for {int(idle_sec)}s)")
+                        _embedding_model = None
+                        gc.collect()
+
+    t = threading.Thread(target=_idle_worker, daemon=True, name="amber-model-idle-sweeper")
+    t.start()
 
 
 def get_embedding_model() -> TextEmbedding:
@@ -39,15 +68,35 @@ def get_embedding_model() -> TextEmbedding:
     return _embedding_model
 
 
+def unload_embedding_model():
+    """Explicitly releases the ONNX embedding model weights from system RAM."""
+    global _embedding_model
+    with _model_lock:
+        if _embedding_model is not None:
+            logger.info("Unloading embedding model from memory")
+            _embedding_model = None
+            gc.collect()
+
+
 def embed_text(text: str) -> np.ndarray:
-    model = get_embedding_model()
-    embeddings = list(model.embed([text]))
-    vec = np.array(embeddings[0], dtype=np.float32)
-    # Normalize vector for fast dot-product cosine similarity
-    norm = np.linalg.norm(vec)
-    if norm > 0:
-        vec = vec / norm
-    return vec
+    global _last_used_timestamp, _embedding_model
+    with _model_lock:
+        _last_used_timestamp = time.time()
+        model = get_embedding_model()
+        embeddings = list(model.embed([text]))
+        vec = np.array(embeddings[0], dtype=np.float32)
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec = vec / norm
+
+        if MODEL_IDLE_TIMEOUT_SEC == 0:
+            logger.info("Immediate detach: Unloading embedding model from memory (AMBER_MODEL_IDLE_TIMEOUT_SEC=0)")
+            _embedding_model = None
+            gc.collect()
+        elif MODEL_IDLE_TIMEOUT_SEC > 0:
+            _schedule_idle_cleanup()
+
+        return vec
 
 
 def sanitize_fts_query(query: str) -> str:

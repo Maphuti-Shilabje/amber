@@ -32,9 +32,10 @@ These variables control the hybrid ranking algorithm combining SQLite FTS5 (BM25
 
 | Environment Variable | Type | Default | Valid / Recommended Range | Description & Impact |
 | :--- | :--- | :--- | :--- | :--- |
-| `AMBER_EMBED_MODEL` | string | `BAAI/bge-small-en-v1.5` | Any FastEmbed model | Pre-trained ONNX embedding model. `bge-small-en-v1.5` produces 384-dimensional vectors with minimal CPU/RAM overhead (~50MB RAM). |
+| `AMBER_EMBED_MODEL` | string | `BAAI/bge-small-en-v1.5` | Any FastEmbed model | Pre-trained ONNX embedding model. `bge-small-en-v1.5` produces 384-dimensional vectors with minimal CPU/RAM overhead (~115MB model weights). |
 | `AMBER_EMBED_DIM` | int | `384` | Model-dependent | Dimensionality of the embedding vectors. Must match the chosen model. |
 | `AMBER_EMBED_TRUNCATE_CHARS` | int | `2000` | `500` - `10000` | Character limit for scraped text passed to the embedding generator. |
+| `AMBER_MODEL_IDLE_TIMEOUT_SEC` | int | `300` | `0` (immediate), `-1` (never), `30`–`3600` | Seconds of inactivity before unloading the ONNX model from RAM to drop daemon memory footprint back down to ~45MB. |
 
 ---
 
