@@ -5,13 +5,13 @@ import trafilatura
 logger = logging.getLogger("mygoogle.scraper")
 
 
-def extract_url_content(url: str, timeout: int = 10) -> Optional[Dict[str, Any]]:
+def extract_url_content(url: str) -> Optional[Dict[str, Any]]:
     """
     Downloads and extracts clean readable text and metadata from a web page.
     Strips ads, boilerplate, navigation, and comments.
     """
     try:
-        downloaded = trafilatura.fetch_url(url, timeout=timeout)
+        downloaded = trafilatura.fetch_url(url)
         if not downloaded:
             logger.warning(f"Could not fetch content from {url}")
             return None
