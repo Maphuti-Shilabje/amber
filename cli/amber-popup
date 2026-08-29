@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# amber-popup - Floating desktop search popup for Amber
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AMBER_BIN="${SCRIPT_DIR}/amber"
+
+if [[ ! -x "$AMBER_BIN" ]]; then
+    echo "Error: amber executable not found at $AMBER_BIN"
+    exit 1
+fi
+
+# Detect available terminal emulator and launch centered floating window
+if command -v gnome-terminal &>/dev/null; then
+    gnome-terminal --window \
+        --title="Amber Search" \
+        --geometry=95x24 \
+        --hide-menubar \
+        -- bash -c "${AMBER_BIN} -i; exit"
+elif command -v alacritty &>/dev/null; then
+    alacritty --title "Amber Search" \
+        --dimensions 95 24 \
+        -e bash -c "${AMBER_BIN} -i"
+elif command -v kitty &>/dev/null; then
+    kitty --title "Amber Search" \
+        -o initial_window_width=95c \
+        -o initial_window_height=24c \
+        bash -c "${AMBER_BIN} -i"
+elif command -v xterm &>/dev/null; then
+    xterm -title "Amber Search" \
+        -geometry 95x24 \
+        -e bash -c "${AMBER_BIN} -i"
+else
+    echo "No supported terminal emulator found (gnome-terminal, alacritty, kitty, xterm)."
+    exit 1
+fi

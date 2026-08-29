@@ -143,6 +143,34 @@ Open **`http://127.0.0.1:7474`** in your browser.
 
 ---
 
+## Desktop Launcher & Spotlight Integrations
+
+### 1. Zero-Dependency GNOME / Ubuntu Floating Shortcut (`Super+A` or `Alt+Space`)
+Launch Amber as a floating Spotlight search bar from anywhere on your desktop:
+1. Open **Ubuntu Settings** -> **Keyboard** -> **View and Customize Shortcuts** -> **Custom Shortcuts**.
+2. Click **+** (Add Shortcut):
+   * **Name:** `Amber Search`
+   * **Command:** `/home/maphuti/Documents/projects/amber/cli/amber-popup`
+   * **Shortcut:** Press **`Super+A`** (or **`Alt+Space`**).
+3. Whenever you hit the shortcut, a floating search bar appears, copies on `Enter`, and dismisses automatically.
+
+### 2. Ulauncher Extension (Linux)
+Link the Amber extension into Ulauncher:
+```bash
+mkdir -p ~/.local/share/ulauncher/extensions
+ln -s /path/to/amber/integrations/ulauncher ~/.local/share/ulauncher/extensions/ulauncher-amber
+```
+Restart Ulauncher. Type `a <query>` to search Amber.
+
+### 3. Raycast Extension (macOS)
+```bash
+cd integrations/raycast
+npm install
+npm run dev
+```
+
+---
+
 ## Configuration & Tuning
 
 All scoring hyperparameters, similarity thresholds, BM25 field weights, and database timeouts can be customized via environment variables or a `.env` file.
