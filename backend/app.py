@@ -228,3 +228,14 @@ if STATIC_DIR.exists():
             return FileResponse(str(index_file))
         return {"status": "ok", "message": "Amber daemon running. Web UI not found in static dir."}
 
+
+def main():
+    import uvicorn
+    from backend.config import HOST, PORT
+    uvicorn.run("backend.app:app", host=HOST, port=PORT, reload=False)
+
+
+if __name__ == "__main__":
+    main()
+
+

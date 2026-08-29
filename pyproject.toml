@@ -1,8 +1,12 @@
 [project]
 name = "amber"
 version = "0.1.0"
-description = "Personal memory, command preservation, and knowledge retrieval hub"
+description = "Personal local-first memory vault, command preservation, and knowledge retrieval hub"
 readme = "README.md"
+authors = [
+    { name = "Maphuti Shilabje" }
+]
+license = { text = "MIT" }
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110.0",
@@ -14,6 +18,10 @@ dependencies = [
     "requests>=2.31.0",
 ]
 
+[project.scripts]
+amber = "backend.cli:main"
+amber-server = "backend.app:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -21,3 +29,5 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["backend"]
 
+[tool.hatch.build.targets.wheel.sources]
+"web/static" = "backend/static"

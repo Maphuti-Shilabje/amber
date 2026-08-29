@@ -10,8 +10,10 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DB_PATH = Path(os.environ.get("AMBER_DB_PATH", str(DATA_DIR / "db.sqlite")))
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-STATIC_DIR = BASE_DIR / "web" / "static"
+PACKAGE_DIR = Path(__file__).resolve().parent
+REPO_STATIC = PACKAGE_DIR.parent / "web" / "static"
+PKG_STATIC = PACKAGE_DIR / "static"
+STATIC_DIR = REPO_STATIC if REPO_STATIC.exists() else PKG_STATIC
 
 # -----------------------------------------------------------------------------
 # Server Settings

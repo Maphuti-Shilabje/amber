@@ -46,38 +46,30 @@ amber/
 
 ## Setup and Installation
 
-### 1. Environment and Dependencies
+### Option A: Install via Pip / Pipx (Quickest)
 ```bash
-# Clone and enter the repository
-cd /path/to/amber
+# Install globally into an isolated environment
+pipx install git+https://github.com/Maphuti-Shilabje/amber.git
 
-# Create virtual environment and install packages
-uv venv
-uv pip install -e .
+# Start the background daemon
+amber-server &
 ```
 
-### 2. Run the Backend Daemon
+### Option B: Local Source Installation (Automated)
 ```bash
-.venv/bin/uvicorn backend.app:app --host 127.0.0.1 --port 7474
-```
+# Clone the repository
+git clone https://github.com/Maphuti-Shilabje/amber.git
+cd amber
 
-To run continuously in the background via systemd:
-```bash
-mkdir -p ~/.config/systemd/user
-cp amber.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now amber
+# Run automated one-line setup (creates venv, links binaries, enables systemd daemon)
+./install.sh
 ```
 
 ---
 
 ## CLI Usage (`amber`)
 
-Add the `cli/` directory to your `PATH` or create an alias in `~/.bashrc` or `~/.zshrc`:
-```bash
-alias amber="/path/to/amber/cli/amber"
-alias ?="amber"
-```
+The `amber` command is globally available after installation.
 
 ### Ingestion Examples
 ```bash
